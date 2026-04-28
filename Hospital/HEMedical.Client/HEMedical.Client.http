@@ -1,6 +1,0 @@
-@HEMedical.Client_HostAddress = http://localhost:5101
-
-GET {{HEMedical.Client_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
