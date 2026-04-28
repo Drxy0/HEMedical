@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="HEMedical.Client/HEMedical.Client.csproj" Id="79247a45-0b10-4a9e-9b1f-25d6d8157e25" />
+  <Project Path="HEMedical.Server/HEMedical.Server.csproj" Id="97743b49-811a-4e03-87ce-032757cfe20f" />
+  <Project Path="Hospital/HEMedical.Hospital.csproj" />
+</Solution>
