@@ -15,6 +15,7 @@ public class HEKeyService : IHEKeyService
     public HEKeyService()
     {
         using EncryptionParameters parms = new(SchemeType.CKKS);
+        // TODO: Provjeri ove parametre
         parms.PolyModulusDegree = 8192;
         parms.CoeffModulus = CoeffModulus.Create(8192, [60, 40, 40, 60]);
 
