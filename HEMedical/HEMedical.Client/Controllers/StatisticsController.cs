@@ -1,36 +1,27 @@
 ﻿
+using HEMedical.Client.DTOs;
 using HEMedical.Client.Models;
+using HEMedical.Client.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.Client.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class StatisticsController : ControllerBase
+public class StatisticsController(IStatisticsService _statService) : ControllerBase
 {
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="measurementType"></param>
-    /// <param name="startDate"></param>
-    /// <param name="endDate"></param>
-    /// <returns></returns>
-    [HttpGet]
-    public IActionResult GetAverageByDateRange(MeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
-    {
 
+    [HttpGet("by-date")]
+    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    {
+        //double result = await _statService.GetA
         return Ok();
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="measurementType"></param>
-    /// <param name="startAge"></param>
-    /// <param name="endAge">endAge is inclusive</param>
-    /// <returns></returns>
-    [HttpGet]
-    public IActionResult GetAverageByPatientAgeRange(MeasurementType measurementType, ushort startAge, ushort endAge)
+    // endAge is inclusive</param>
+    [HttpGet("by-agee")]
+    public IActionResult GetAverageByPatientAgeRange([FromQuery] AgeRangeRequest request)
     {
 
         return Ok();

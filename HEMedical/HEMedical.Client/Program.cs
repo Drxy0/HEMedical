@@ -1,3 +1,6 @@
+using HEMedical.Client.Services;
+using HEMedical.Client.Services.Interfaces;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -5,6 +8,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddSingleton<IHEKeyService, HEKeyService>();
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddHttpClient<StatisticsService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["HEServerBaseUrl"]!);
+});
 
 var app = builder.Build();
 
