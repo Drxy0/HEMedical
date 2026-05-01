@@ -1,4 +1,5 @@
 ﻿using HEMedical.Client.Services.Interfaces;
+using HEMedical.Shared;
 using Microsoft.Research.SEAL;
 
 namespace HEMedical.Client.Services;
@@ -15,9 +16,8 @@ public class HEKeyService : IHEKeyService
     public HEKeyService()
     {
         using EncryptionParameters parms = new(SchemeType.CKKS);
-        // TODO: Provjeri ove parametre
-        parms.PolyModulusDegree = 8192;
-        parms.CoeffModulus = CoeffModulus.Create(8192, [60, 40, 40, 60]);
+        parms.PolyModulusDegree = CKKSParameters.PolyModulusDegree;
+        parms.CoeffModulus = CoeffModulus.Create(CKKSParameters.PolyModulusDegree, CKKSParameters.CoeffModulusBits);
 
         _context = new SEALContext(parms);
 

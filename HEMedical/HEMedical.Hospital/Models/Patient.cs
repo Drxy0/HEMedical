@@ -1,4 +1,4 @@
-﻿namespace Hospital.Models;
+﻿namespace HEMedical.Hospital.Models;
 
 public class Patient
 {

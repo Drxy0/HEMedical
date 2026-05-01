@@ -1,4 +1,4 @@
-﻿namespace Hospital.Models.ClinicalMeasurementModels;
+﻿namespace HEMedical.Hospital.Models.ClinicalMeasurementModels;
 
 public abstract class ClinicalMeasurement
 {

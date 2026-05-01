@@ -1,4 +1,4 @@
-using Hospital.Models.ClinicalMeasurementModels;
+using HEMedical.Hospital;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);

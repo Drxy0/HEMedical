@@ -1,6 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using HEMedical.Hospital.Models;
+using HEMedical.Hospital.Models.ClinicalMeasurementModels;
+using Microsoft.EntityFrameworkCore;
 
-namespace Hospital.Models.ClinicalMeasurementModels;
+namespace HEMedical.Hospital;
 
 public class HospitalDbContext(DbContextOptions<HospitalDbContext> options) : DbContext(options)
 {
