@@ -1,6 +1,6 @@
-﻿using HEMedical.HEServer.Models;
-using HEMedical.HEServer.Services.Interfaces;
+﻿using HEMedical.HEServer.Services.Interfaces;
 using HEMedical.Shared.DTOs;
+using HEMedical.Shared.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Research.SEAL;
 

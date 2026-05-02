@@ -1,4 +1,4 @@
-﻿namespace HEMedical.Client.Models;
+﻿namespace HEMedical.Shared.Models;
 
 public enum ClinicalMeasurementType
 {

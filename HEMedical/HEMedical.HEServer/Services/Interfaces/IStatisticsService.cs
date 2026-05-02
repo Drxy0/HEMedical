@@ -1,5 +1,5 @@
-﻿using HEMedical.HEServer.Models;
-using HEMedical.Shared.DTOs;
+﻿using HEMedical.Shared.DTOs;
+using HEMedical.Shared.Models;
 
 namespace HEMedical.HEServer.Services.Interfaces;
 
