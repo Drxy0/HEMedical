@@ -63,10 +63,10 @@ public class StatisticsService : IStatisticsService
             if (response is null) continue;
 
             using var sum = new Ciphertext();
-            sum.Load(_context, new MemoryStream(response.EncryptedSum));
+            sum.Load(_context, new MemoryStream(response.ValuesSum));
 
             using var count = new Ciphertext();
-            count.Load(_context, new MemoryStream(response.EncryptedCount));
+            count.Load(_context, new MemoryStream(response.OnesSum));
 
             if (AreAccumulatorsEmpty(totalSum, totalCount))
             {

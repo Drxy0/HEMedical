@@ -40,14 +40,26 @@ public class StatisticsService : IStatisticsService
         return Decrypt(result);
     }
 
+    /// <summary>
+    /// Decrypts an <see cref="EncryptedAverageResult"/> and computes the average like so: sum(values)/sum(ones).
+    /// </summary>
+    /// <param name="encryptedResult">The encrypted values and ones vectors returned by the HE Server.</param>
+    /// <returns>The decrypted average value.</returns>
+
     private double Decrypt(EncryptedAverageResult encryptedResult)
     {
-        double sum = DecryptAndSum(encryptedResult.EncryptedSum);
-        double count = DecryptAndSum(encryptedResult.EncryptedCount);
+        double sum = DecryptAndSumVector(encryptedResult.ValuesSum);
+        double count = DecryptAndSumVector(encryptedResult.OnesSum);
         return sum / count;
     }
 
-    private double DecryptAndSum(byte[] encryptedBytes)
+    /// <summary>
+    /// Decrypts a CKKS ciphertext vector and sums all slots to produce a single scalar value.
+    /// Each slot corresponds to one patient's value. Unused slots are padded with zeros and contribute 0 to the sum.
+    /// </summary>
+    /// <param name="encryptedBytes">Serialized CKKS ciphertext vector as a byte array.</param>
+    /// <returns>The sum of all decrypted slot values.</returns>
+    private double DecryptAndSumVector(byte[] encryptedBytes)
     {
         SEALContext context = _keyService.GetContext();
         using var decryptor = new Decryptor(context, _keyService.SecretKey);
