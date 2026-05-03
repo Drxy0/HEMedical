@@ -23,6 +23,8 @@ public class StatisticsService : IStatisticsService
         response.EnsureSuccessStatusCode();
 
         EncryptedAverageResult? result = await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        if (result is null)
+            throw new InvalidOperationException("Failed to deserialize response from HE Server."); // TODO: handle exception
         return Decrypt(result);
     }
 
@@ -33,17 +35,19 @@ public class StatisticsService : IStatisticsService
         response.EnsureSuccessStatusCode();
 
         EncryptedAverageResult? result = await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        if (result is null)
+            throw new InvalidOperationException("Failed to deserialize response from HE Server."); // TODO: handle exception
         return Decrypt(result);
     }
 
     private double Decrypt(EncryptedAverageResult encryptedResult)
     {
-        double sum = DecryptFirstSlot(encryptedResult.EncryptedSum);
-        double count = DecryptFirstSlot(encryptedResult.EncryptedCount);
+        double sum = DecryptAndSum(encryptedResult.EncryptedSum);
+        double count = DecryptAndSum(encryptedResult.EncryptedCount);
         return sum / count;
     }
 
-    private double DecryptFirstSlot(byte[] encryptedBytes)
+    private double DecryptAndSum(byte[] encryptedBytes)
     {
         SEALContext context = _keyService.GetContext();
         using var decryptor = new Decryptor(context, _keyService.SecretKey);
@@ -58,6 +62,6 @@ public class StatisticsService : IStatisticsService
         var result = new List<double>();
         encoder.Decode(plaintext, result);
 
-        return result[0];
+        return result.Sum();
     }
 }

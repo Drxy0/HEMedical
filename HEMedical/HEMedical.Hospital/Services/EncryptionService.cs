@@ -21,42 +21,41 @@ public class EncryptionService : IEncryptionService
         using var encoder = new CKKSEncoder(context);
 
         ulong slotCount = encoder.SlotCount;
-        List<double> valueVector = new((int)slotCount);
-        List<double> onesVector = new((int)slotCount);
+        List<double> valueVector = BuildValueVector(values, slotCount);
+        List<double> onesVector = BuildOnesVector(values.Count, slotCount);
 
+        byte[] encryptedValues = EncryptVector(valueVector, encoder, encryptor);
+        byte[] encryptedOnes = EncryptVector(onesVector, encoder, encryptor);
+
+        return new EncryptedAverageResult(encryptedValues, encryptedOnes);
+    }
+
+    private static List<double> BuildValueVector(List<decimal> values, ulong slotCount)
+    {
+        List<double> vector = new((int)slotCount);
         for (int i = 0; i < (int)slotCount; i++)
-        {
-            if (i < values.Count)
-            {
-                valueVector.Add((double)values[i]);
-                onesVector.Add(1.0);
-            }
-            else
-            {
-                valueVector.Add(0.0);
-                onesVector.Add(0.0);
-            }
-        }
+            vector.Add(i < values.Count ? (double)values[i] : 0.0);
+        return vector;
+    }
 
-        // Encode and encrypt values
-        using var valuePlain = new Plaintext();
-        encoder.Encode(valueVector, CKKSParameters.Scale, valuePlain);
-        using var valueCipher = new Ciphertext();
-        encryptor.Encrypt(valuePlain, valueCipher);
+    private static List<double> BuildOnesVector(int count, ulong slotCount)
+    {
+        List<double> vector = new((int)slotCount);
+        for (int i = 0; i < (int)slotCount; i++)
+            vector.Add(i < count ? 1.0 : 0.0);
+        return vector;
+    }
 
-        // Encode and encrypt ones
-        using var onesPlain = new Plaintext();
-        encoder.Encode(onesVector, CKKSParameters.Scale, onesPlain);
-        using var onesCipher = new Ciphertext();
-        encryptor.Encrypt(onesPlain, onesCipher);
+    private byte[] EncryptVector(List<double> vector, CKKSEncoder encoder, Encryptor encryptor)
+    {
+        using var plain = new Plaintext();
+        encoder.Encode(vector, CKKSParameters.Scale, plain);
 
-        // Serialize both to byte arrays
-        using var valueStream = new MemoryStream();
-        valueCipher.Save(valueStream);
+        using var cipher = new Ciphertext();
+        encryptor.Encrypt(plain, cipher);
 
-        using var onesStream = new MemoryStream();
-        onesCipher.Save(onesStream);
-
-        return new EncryptedAverageResult(valueStream.ToArray(), onesStream.ToArray());
+        using var stream = new MemoryStream();
+        cipher.Save(stream);
+        return stream.ToArray();
     }
 }
