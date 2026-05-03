@@ -1,4 +1,5 @@
 ﻿using HEMedical.Client.Services.Interfaces;
+using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
 using Microsoft.Research.SEAL;
 
@@ -21,8 +22,8 @@ public class StatisticsService : IStatisticsService
         var response = await _httpClient.GetAsync(url);
         response.EnsureSuccessStatusCode();
 
-        var bytes = await response.Content.ReadAsByteArrayAsync();
-        return Decrypt(bytes);
+        EncryptedAverageResult? result = await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        return Decrypt(result);
     }
 
     public async Task<double> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge)
@@ -31,18 +32,25 @@ public class StatisticsService : IStatisticsService
         var response = await _httpClient.GetAsync(url);
         response.EnsureSuccessStatusCode();
 
-        var bytes = await response.Content.ReadAsByteArrayAsync();
-        return Decrypt(bytes);
+        EncryptedAverageResult? result = await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        return Decrypt(result);
     }
 
-    private double Decrypt(byte[] bytes)
+    private double Decrypt(EncryptedAverageResult encryptedResult)
+    {
+        double sum = DecryptFirstSlot(encryptedResult.EncryptedSum);
+        double count = DecryptFirstSlot(encryptedResult.EncryptedCount);
+        return sum / count;
+    }
+
+    private double DecryptFirstSlot(byte[] encryptedBytes)
     {
         SEALContext context = _keyService.GetContext();
         using var decryptor = new Decryptor(context, _keyService.SecretKey);
         using var encoder = new CKKSEncoder(context);
 
         using var ciphertext = new Ciphertext();
-        ciphertext.Load(context, new MemoryStream(bytes));
+        ciphertext.Load(context, new MemoryStream(encryptedBytes));
 
         using var plaintext = new Plaintext();
         decryptor.Decrypt(ciphertext, plaintext);

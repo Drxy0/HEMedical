@@ -1,9 +1,8 @@
 ﻿
 using HEMedical.Client.DTOs;
-using HEMedical.Client.Models;
 using HEMedical.Client.Services.Interfaces;
+using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.Client.Controllers;
 
@@ -19,7 +18,7 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
         return Ok();
     }
 
-    // endAge is inclusive</param>
+    // endAge is inclusive
     [HttpGet("by-agee")]
     public IActionResult GetAverageByPatientAgeRange([FromQuery] AgeRangeRequest request)
     {

@@ -22,8 +22,4 @@
     <ProjectReference Include="..\HEMedical.Shared\HEMedical.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
 </Project>
