@@ -30,6 +30,14 @@ public class EncryptionService : IEncryptionService
         return new EncryptedAverageResult(encryptedValues, encryptedOnes);
     }
 
+    /// <summary>
+    /// Builds a values vector of length <paramref name="slotCount"/>.
+    /// Each slot contains the corresponding patient's measurement value,
+    /// with unused slots padded with zeros.
+    /// </summary>
+    /// <param name="values">Patient measurement values.</param>
+    /// <param name="slotCount">Total number of slots determined by CKKS parameters.</param>
+    /// <returns>A vector of doubles ready for CKKS encoding.</returns>
     private static List<double> BuildValueVector(List<decimal> values, ulong slotCount)
     {
         List<double> vector = new((int)slotCount);
@@ -38,6 +46,14 @@ public class EncryptionService : IEncryptionService
         return vector;
     }
 
+    /// <summary>
+    /// Builds a ones vector of length <paramref name="slotCount"/>.
+    /// Each slot contains 1.0 for a real patient and 0.0 for unused slots.
+    /// Used as a patient counter — summing all slots yields the total patient count.
+    /// </summary>
+    /// <param name="count">Number of real patients.</param>
+    /// <param name="slotCount">Total number of slots determined by CKKS parameters.</param>
+    /// <returns>A vector of ones and zeros ready for CKKS encoding.</returns>
     private static List<double> BuildOnesVector(int count, ulong slotCount)
     {
         List<double> vector = new((int)slotCount);
@@ -46,6 +62,10 @@ public class EncryptionService : IEncryptionService
         return vector;
     }
 
+    /// <summary>
+    /// Encodes and encrypts a vector of doubles into a CKKS ciphertext,
+    /// then serializes it to a byte array for transmission.
+    /// </summary>
     private byte[] EncryptVector(List<double> vector, CKKSEncoder encoder, Encryptor encryptor)
     {
         using var plain = new Plaintext();

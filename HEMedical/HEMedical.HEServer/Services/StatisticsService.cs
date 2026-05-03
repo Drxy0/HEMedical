@@ -51,6 +51,14 @@ public class StatisticsService : IStatisticsService
         return AggregateResults(responses);
     }
 
+    /// <summary>
+    /// Aggregates encrypted responses from multiple hospitals by homomorphically summing
+    /// the values vectors and ones vectors slot-by-slot across all hospitals.
+    /// The resulting <see cref="EncryptedAverageResult"/> contains the final sum and ones vectors,
+    /// which the Client uses to compute the average.
+    /// </summary>
+    /// <param name="responses">Encrypted responses from each hospital.</param>
+    /// <returns>The aggregated response <see cref="EncryptedAverageResult"/>.</returns>
     private EncryptedAverageResult AggregateResults(EncryptedAverageResult?[] responses)
     {
         using var evaluator = new Evaluator(_context);
