@@ -1,4 +1,4 @@
-﻿using HEMedical.Client.Models;
+﻿using HEMedical.Shared.Models;
 using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.Client.DTOs;

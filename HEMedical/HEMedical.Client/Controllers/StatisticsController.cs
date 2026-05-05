@@ -12,17 +12,16 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
 {
 
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<IActionResult> GetAverage_ByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
-        //double result = await _statService.GetA
-        return Ok();
+        double result = await _statService.GetAverageByDateRangeAsync(measurementType, startDate, endDate);
+        return Ok(result);
     }
 
-    // endAge is inclusive
-    [HttpGet("by-agee")]
-    public IActionResult GetAverageByPatientAgeRange([FromQuery] AgeRangeRequest request)
+    [HttpGet("by-age")]
+    public async Task<IActionResult> GetAverage_ByPatientAgeRange([FromQuery] AgeRangeRequest request)
     {
-
-        return Ok();
+        double result = await _statService.GetAverageByPatientAgeRange(request.MeasurementType, request.StartAge, request.EndAge);
+        return Ok(result);
     }
 }

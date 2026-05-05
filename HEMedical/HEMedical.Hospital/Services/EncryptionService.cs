@@ -66,7 +66,7 @@ public class EncryptionService : IEncryptionService
     /// Encodes and encrypts a vector of doubles into a CKKS ciphertext,
     /// then serializes it to a byte array for transmission.
     /// </summary>
-    private byte[] EncryptVector(List<double> vector, CKKSEncoder encoder, Encryptor encryptor)
+    private static byte[] EncryptVector(List<double> vector, CKKSEncoder encoder, Encryptor encryptor)
     {
         using var plain = new Plaintext();
         encoder.Encode(vector, CKKSParameters.Scale, plain);
