@@ -1,3 +1,5 @@
+using HEMedical.Client.Clients;
+using HEMedical.Client.Clients.Interfaces;
 using HEMedical.Client.Services;
 using HEMedical.Client.Services.Interfaces;
 
@@ -10,8 +12,8 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<IHEKeyService, HEKeyService>();
-builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-builder.Services.AddHttpClient<StatisticsService>(client =>
+builder.Services.AddScoped<IStatisticsService, HEStatisticsService>();
+builder.Services.AddHttpClient<IHEServerClient, HEServerClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["HEServerBaseUrl"]!);
 });

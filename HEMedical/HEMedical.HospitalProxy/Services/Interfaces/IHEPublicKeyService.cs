@@ -1,6 +1,6 @@
 ﻿using Microsoft.Research.SEAL;
 
-namespace HEMedical.Hospital.Services.Interfaces;
+namespace HEMedical.HospitalProxy.Services.Interfaces;
 
 public interface IHEPublicKeyService
 {

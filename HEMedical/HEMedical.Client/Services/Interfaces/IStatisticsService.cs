@@ -1,10 +1,11 @@
-﻿using HEMedical.Shared.Models;
+﻿using HEMedical.Client.Common;
+using HEMedical.Shared.Models;
 
 namespace HEMedical.Client.Services.Interfaces;
 
 public interface IStatisticsService
 {
-    Task<double> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate);
+    Task<Result<double>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate);
 
-    Task<double> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge);
+    Task<Result<double>> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge);
 }

@@ -1,6 +1,6 @@
 ﻿using HEMedical.Shared.DTOs;
 
-namespace HEMedical.Hospital.Services.Interfaces;
+namespace HEMedical.HospitalProxy.Services.Interfaces;
 
 public interface IEncryptionService
 {

@@ -1,5 +1,4 @@
-﻿
-using HEMedical.Client.DTOs;
+﻿using HEMedical.Client.DTOs;
 using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -10,18 +9,17 @@ namespace HEMedical.Client.Controllers;
 [ApiController]
 public class StatisticsController(IStatisticsService _statService) : ControllerBase
 {
-
     [HttpGet("by-date")]
     public async Task<IActionResult> GetAverage_ByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
-        double result = await _statService.GetAverageByDateRangeAsync(measurementType, startDate, endDate);
-        return Ok(result);
+        var result = await _statService.GetAverageByDateRangeAsync(measurementType, startDate, endDate);
+        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 
     [HttpGet("by-age")]
     public async Task<IActionResult> GetAverage_ByPatientAgeRange([FromQuery] AgeRangeRequest request)
     {
-        double result = await _statService.GetAverageByPatientAgeRange(request.MeasurementType, request.StartAge, request.EndAge);
-        return Ok(result);
+        var result = await _statService.GetAverageByPatientAgeRange(request.MeasurementType, request.StartAge, request.EndAge);
+        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 }

@@ -1,4 +1,5 @@
-﻿using HEMedical.HEServer.Services.Interfaces;
+using HEMedical.HEServer.Clients;
+using HEMedical.HEServer.Services.Interfaces;
 using HEMedical.Shared;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
@@ -9,14 +10,14 @@ namespace HEMedical.HEServer.Services;
 
 public class StatisticsService : IStatisticsService
 {
-    private readonly HttpClient _httpClient;
-    private readonly List<string> _hospitalUrls;
+    private readonly HospitalSettings _settings;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly SEALContext _context;
 
-    public StatisticsService(HttpClient httpClient, IOptions<HospitalSettings> hospitalSettings)
+    public StatisticsService(IOptions<HospitalSettings> settings, IHttpClientFactory httpClientFactory)
     {
-        _httpClient = httpClient;
-        _hospitalUrls = hospitalSettings.Value.Urls;
+        _settings = settings.Value;
+        _httpClientFactory = httpClientFactory;
 
         using EncryptionParameters parms = new(SchemeType.CKKS);
         parms.PolyModulusDegree = CKKSParameters.PolyModulusDegree;
@@ -25,29 +26,31 @@ public class StatisticsService : IStatisticsService
         _context = new SEALContext(parms);
     }
 
-    public async Task<EncryptedAverageResult> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<EncryptedAverageResult> GetAverageByDateRangeAsync(
+        ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
-        var tasks = _hospitalUrls.Select(async url =>
+        var tasks = _settings.Urls.Select(url =>
         {
-            var response = await _httpClient.GetAsync($"{url}/api/statistics/by-date?measurementType={measurementType}&startDate={startDate}&endDate={endDate}");
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+            var http = _httpClientFactory.CreateClient("HospitalProxy");
+            http.BaseAddress = new Uri(url);
+            return new HospitalProxyClient(http).GetByDateRangeAsync(measurementType, startDate, endDate);
         });
 
-        var responses = await Task.WhenAll(tasks);
+        EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
         return AggregateResults(responses);
     }
 
-    public async Task<EncryptedAverageResult> GetAverageByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<EncryptedAverageResult> GetAverageByAgeRangeAsync(
+        ClinicalMeasurementType measurementType, int startAge, int endAge)
     {
-        var tasks = _hospitalUrls.Select(async url =>
+        var tasks = _settings.Urls.Select(url =>
         {
-            var response = await _httpClient.GetAsync($"{url}/api/statistics/by-age?measurementType={measurementType}&startAge={startAge}&endAge={endAge}");
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+            var http = _httpClientFactory.CreateClient("HospitalProxy");
+            http.BaseAddress = new Uri(url);
+            return new HospitalProxyClient(http).GetByAgeRangeAsync(measurementType, startAge, endAge);
         });
 
-        var responses = await Task.WhenAll(tasks);
+        EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
         return AggregateResults(responses);
     }
 

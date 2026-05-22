@@ -11,9 +11,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<HospitalDbContext>(options =>
     options.UseSqlServer(builder.Configuration["Database:DefaultConnection"]));
 
-builder.Services.AddSingleton<IHEPublicKeyService, HEPublicKeyService>();
 builder.Services.AddScoped<IPatientQueryService, PatientQueryService>();
-builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 
 var app = builder.Build();
 

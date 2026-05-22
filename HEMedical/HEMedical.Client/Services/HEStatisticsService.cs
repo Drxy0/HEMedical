@@ -1,43 +1,53 @@
-﻿using HEMedical.Client.Services.Interfaces;
+using HEMedical.Client.Clients.Interfaces;
+using HEMedical.Client.Common;
+using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
 using Microsoft.Research.SEAL;
 
 namespace HEMedical.Client.Services;
 
-public class StatisticsService : IStatisticsService
+public class HEStatisticsService : IStatisticsService
 {
-    private readonly HttpClient _httpClient;
+    private readonly IHEServerClient _heServerClient;
     private readonly IHEKeyService _keyService;
 
-    public StatisticsService(HttpClient httpClient, IHEKeyService keyService)
+    public HEStatisticsService(IHEServerClient heServerClient, IHEKeyService keyService)
     {
-        _httpClient = httpClient;
+        _heServerClient = heServerClient;
         _keyService = keyService;
     }
 
-    public async Task<double> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<Result<double>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
-        string url = $"api/statistics/by-date?measurementType={measurementType}&startDate={startDate}&endDate={endDate}";
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-
-        EncryptedAverageResult? result = await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        EncryptedAverageResult? result = await _heServerClient.GetAverageByDateRangeAsync(measurementType, startDate, endDate);
         if (result is null)
-            throw new InvalidOperationException("Failed to deserialize response from HE Server."); // TODO: handle exception
-        return Decrypt(result);
+            return Result<double>.Fail("No data returned from HE Server.");
+
+        try
+        {
+            return Result<double>.Ok(Decrypt(result));
+        }
+        catch (Exception ex)
+        {
+            return Result<double>.Fail($"Decryption failed: {ex.Message}");
+        }
     }
 
-    public async Task<double> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<Result<double>> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge)
     {
-        string url = $"api/statistics/by-age?measurementType={measurementType}&startAge={startAge}&endAge={endAge}";
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-
-        EncryptedAverageResult? result = await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        EncryptedAverageResult? result = await _heServerClient.GetAverageByAgeRangeAsync(measurementType, startAge, endAge);
         if (result is null)
-            throw new InvalidOperationException("Failed to deserialize response from HE Server."); // TODO: handle exception
-        return Decrypt(result);
+            return Result<double>.Fail("No data returned from HE Server.");
+
+        try
+        {
+            return Result<double>.Ok(Decrypt(result));
+        }
+        catch (Exception ex)
+        {
+            return Result<double>.Fail($"Decryption failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -45,7 +55,6 @@ public class StatisticsService : IStatisticsService
     /// </summary>
     /// <param name="encryptedResult">The encrypted values and ones vectors returned by the HE Server.</param>
     /// <returns>The decrypted average value.</returns>
-
     private double Decrypt(EncryptedAverageResult encryptedResult)
     {
         double sum = DecryptAndSumVector(encryptedResult.ValuesSum);

@@ -1,9 +1,9 @@
-﻿using HEMedical.Hospital.Services.Interfaces;
+﻿using HEMedical.HospitalProxy.Services.Interfaces;
 using HEMedical.Shared;
 using HEMedical.Shared.DTOs;
 using Microsoft.Research.SEAL;
 
-namespace HEMedical.Hospital.Services;
+namespace HEMedical.HospitalProxy.Services;
 
 public class EncryptionService : IEncryptionService
 {

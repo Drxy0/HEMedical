@@ -1,4 +1,5 @@
-﻿using HEMedical.Hospital.Services.Interfaces;
+using HEMedical.Hospital.DTOs;
+using HEMedical.Hospital.Services.Interfaces;
 using HEMedical.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,17 +14,17 @@ public class PatientQueryService : IPatientQueryService
         _context = context;
     }
 
-    public async Task<List<decimal>> GetValuesByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<List<ObservationResult>> GetValuesByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
         return measurementType switch
         {
             ClinicalMeasurementType.HbA1c => await GetHbA1cByDateRangeAsync(startDate, endDate),
             ClinicalMeasurementType.BloodPressure => await GetBloodPressureByDateRangeAsync(startDate, endDate),
-            _ => throw new ArgumentException($"Unsupported measurement type: {measurementType}") // TODO: Handle exceptions
+            _ => throw new ArgumentException($"Unsupported measurement type: {measurementType}")
         };
     }
 
-    public async Task<List<decimal>> GetValuesByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<List<ObservationResult>> GetValuesByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
     {
         return measurementType switch
         {
@@ -33,7 +34,7 @@ public class PatientQueryService : IPatientQueryService
         };
     }
 
-    private async Task<List<decimal>> GetHbA1cByDateRangeAsync(DateOnly? startDate, DateOnly? endDate)
+    private async Task<List<ObservationResult>> GetHbA1cByDateRangeAsync(DateOnly? startDate, DateOnly? endDate)
     {
         var query = _context.Hb1Ac.AsQueryable();
 
@@ -45,11 +46,11 @@ public class PatientQueryService : IPatientQueryService
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
-            .Select(x => x.Value)
+            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Value))
             .ToListAsync();
     }
 
-    private async Task<List<decimal>> GetHbA1cByAgeRangeAsync(int startAge, int endAge)
+    private async Task<List<ObservationResult>> GetHbA1cByAgeRangeAsync(int startAge, int endAge)
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
         DateOnly minBirthDate = today.AddYears(-endAge - 1).AddDays(1);
@@ -60,11 +61,11 @@ public class PatientQueryService : IPatientQueryService
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
-            .Select(x => x.Value)
+            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Value))
             .ToListAsync();
     }
 
-    private async Task<List<decimal>> GetBloodPressureByDateRangeAsync(DateOnly? startDate, DateOnly? endDate)
+    private async Task<List<ObservationResult>> GetBloodPressureByDateRangeAsync(DateOnly? startDate, DateOnly? endDate)
     {
         var query = _context.BloodPressure.AsQueryable();
 
@@ -76,11 +77,11 @@ public class PatientQueryService : IPatientQueryService
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
-            .Select(x => x.Systolic)
+            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Systolic))
             .ToListAsync();
     }
 
-    private async Task<List<decimal>> GetBloodPressureByAgeRangeAsync(int startAge, int endAge)
+    private async Task<List<ObservationResult>> GetBloodPressureByAgeRangeAsync(int startAge, int endAge)
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
 
@@ -90,7 +91,7 @@ public class PatientQueryService : IPatientQueryService
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
-            .Select(x => x.Systolic)
+            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Systolic))
             .ToListAsync();
     }
 }

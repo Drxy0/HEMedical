@@ -1,6 +1,5 @@
-using HEMedical.HEServer;
-using HEMedical.HEServer.Services;
-using HEMedical.HEServer.Services.Interfaces;
+using HEMedical.HospitalProxy.Services;
+using HEMedical.HospitalProxy.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,9 +9,11 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.Configure<HospitalSettings>(builder.Configuration.GetSection("Hospitals"));
-builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-builder.Services.AddHttpClient("HospitalProxy");
+builder.Services.AddSingleton<IHEPublicKeyService, HEPublicKeyService>();
+builder.Services.AddScoped<IFHIRQueryService, FHIRQueryService>();
+builder.Services.AddScoped<IEncryptionService, EncryptionService>();
+builder.Services.AddHttpClient<FHIRQueryService>(client =>
+    client.BaseAddress = new Uri(builder.Configuration["FhirBaseUrl"]!));
 
 var app = builder.Build();
 

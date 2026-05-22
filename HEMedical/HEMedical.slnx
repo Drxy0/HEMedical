@@ -7,11 +7,15 @@
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="Debug|Any CPU" Project="x64" />
   </Project>
-  <Project Path="HEMedical.Hospital/HEMedical.Hospital.csproj">
+  <Project Path="HEMedical.HEServer/HEMedical.HEServer.csproj" Id="97743b49-811a-4e03-87ce-032757cfe20f">
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="Debug|Any CPU" Project="x64" />
   </Project>
-  <Project Path="HEMedical.HEServer/HEMedical.HEServer.csproj" Id="97743b49-811a-4e03-87ce-032757cfe20f">
+  <Project Path="HEMedical.Hospital/HEMedical.Hospital.csproj" Id="b1a2c3d4-e5f6-7890-abcd-ef1234567890">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="Debug|Any CPU" Project="x64" />
+  </Project>
+  <Project Path="HEMedical.HospitalProxy/HEMedical.HospitalProxy.csproj" Id="773e0a01-277b-44a1-b2bf-6697c7794593">
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="Debug|Any CPU" Project="x64" />
   </Project>

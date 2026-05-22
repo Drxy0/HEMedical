@@ -1,8 +1,8 @@
-﻿using HEMedical.Hospital.Services.Interfaces;
+﻿using HEMedical.HospitalProxy.Services.Interfaces;
 using HEMedical.Shared;
 using Microsoft.Research.SEAL;
 
-namespace HEMedical.Hospital.Services;
+namespace HEMedical.HospitalProxy.Services;
 
 public class HEPublicKeyService : IHEPublicKeyService
 {
