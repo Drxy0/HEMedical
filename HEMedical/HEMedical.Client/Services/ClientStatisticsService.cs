@@ -1,5 +1,5 @@
 using HEMedical.Client.Clients.Interfaces;
-using HEMedical.Client.Common;
+using HEMedical.Shared.Common;
 using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
@@ -7,12 +7,12 @@ using Microsoft.Research.SEAL;
 
 namespace HEMedical.Client.Services;
 
-public class HEStatisticsService : IStatisticsService
+public class ClientStatisticsService : IStatisticsService
 {
     private readonly IHEServerClient _heServerClient;
     private readonly IHEKeyService _keyService;
 
-    public HEStatisticsService(IHEServerClient heServerClient, IHEKeyService keyService)
+    public ClientStatisticsService(IHEServerClient heServerClient, IHEKeyService keyService)
     {
         _heServerClient = heServerClient;
         _keyService = keyService;

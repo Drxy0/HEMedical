@@ -1,4 +1,4 @@
-namespace HEMedical.Client.Common;
+namespace HEMedical.Shared.Common;
 
 public record Result<T>
 {

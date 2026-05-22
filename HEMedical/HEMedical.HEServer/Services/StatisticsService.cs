@@ -1,6 +1,8 @@
 using HEMedical.HEServer.Clients;
+using HEMedical.HEServer.Clients.Interfaces;
 using HEMedical.HEServer.Services.Interfaces;
 using HEMedical.Shared;
+using HEMedical.Shared.Common;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
 using Microsoft.Extensions.Options;
@@ -10,11 +12,11 @@ namespace HEMedical.HEServer.Services;
 
 public class StatisticsService : IStatisticsService
 {
-    private readonly HospitalSettings _settings;
+    private readonly HospitalProxySettings _settings;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly SEALContext _context;
 
-    public StatisticsService(IOptions<HospitalSettings> settings, IHttpClientFactory httpClientFactory)
+    public StatisticsService(IOptions<HospitalProxySettings> settings, IHttpClientFactory httpClientFactory)
     {
         _settings = settings.Value;
         _httpClientFactory = httpClientFactory;
@@ -26,33 +28,47 @@ public class StatisticsService : IStatisticsService
         _context = new SEALContext(parms);
     }
 
-    public async Task<EncryptedAverageResult> GetAverageByDateRangeAsync(
-        ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<Result<EncryptedAverageResult>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
-        var tasks = _settings.Urls.Select(url =>
+        try
         {
-            var http = _httpClientFactory.CreateClient("HospitalProxy");
-            http.BaseAddress = new Uri(url);
-            return new HospitalProxyClient(http).GetByDateRangeAsync(measurementType, startDate, endDate);
-        });
+            var tasks = _settings.Urls.Select(url =>
+            {
+                var http = _httpClientFactory.CreateClient(nameof(IHospitalProxyClient));
+                http.BaseAddress = new Uri(url);
+                return new HospitalProxyClient(http).GetByDateRangeAsync(measurementType, startDate, endDate);
+            });
 
-        EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
-        return AggregateResults(responses);
+            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
+            return Result<EncryptedAverageResult>.Ok(AggregateResults(responses));
+        }
+        catch (Exception ex)
+        {
+            return Result<EncryptedAverageResult>.Fail(ex.Message);
+        }
     }
 
-    public async Task<EncryptedAverageResult> GetAverageByAgeRangeAsync(
-        ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<Result<EncryptedAverageResult>> GetAverageByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
     {
-        var tasks = _settings.Urls.Select(url =>
+        try
         {
-            var http = _httpClientFactory.CreateClient("HospitalProxy");
-            http.BaseAddress = new Uri(url);
-            return new HospitalProxyClient(http).GetByAgeRangeAsync(measurementType, startAge, endAge);
-        });
+            var tasks = _settings.Urls.Select(url =>
+            {
+                var http = _httpClientFactory.CreateClient(nameof(IHospitalProxyClient));
+                http.BaseAddress = new Uri(url);
+                return new HospitalProxyClient(http).GetByAgeRangeAsync(measurementType, startAge, endAge);
+            });
 
-        EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
-        return AggregateResults(responses);
+            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
+            return Result<EncryptedAverageResult>.Ok(AggregateResults(responses));
+        }
+        catch (Exception ex)
+        {
+            return Result<EncryptedAverageResult>.Fail(ex.Message);
+        }
     }
+
+    #region SEAL Aggregation Logic
 
     /// <summary>
     /// Aggregates encrypted responses from multiple hospitals by homomorphically summing
@@ -92,7 +108,7 @@ public class StatisticsService : IStatisticsService
         }
 
         if (AreAccumulatorsEmpty(totalSum, totalCount))
-            throw new InvalidOperationException("No valid responses from hospitals.");
+            throw new InvalidOperationException("No valid responses received from any hospital.");
 
         using var sumStream = new MemoryStream();
         totalSum!.Save(sumStream);
@@ -108,4 +124,6 @@ public class StatisticsService : IStatisticsService
 
     private static bool AreAccumulatorsEmpty(Ciphertext? totalSum, Ciphertext? totalCount) =>
         (totalSum is null || totalCount is null);
+
+    #endregion SEAL Aggregation Logic
 }

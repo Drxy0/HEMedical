@@ -1,4 +1,6 @@
 using HEMedical.HEServer;
+using HEMedical.HEServer.Clients;
+using HEMedical.HEServer.Clients.Interfaces;
 using HEMedical.HEServer.Services;
 using HEMedical.HEServer.Services.Interfaces;
 
@@ -10,9 +12,9 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.Configure<HospitalSettings>(builder.Configuration.GetSection("Hospitals"));
+builder.Services.Configure<HospitalProxySettings>(builder.Configuration.GetSection("HospitalsProxies"));
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-builder.Services.AddHttpClient("HospitalProxy");
+builder.Services.AddHttpClient<IHospitalProxyClient, HospitalProxyClient>();
 
 var app = builder.Build();
 

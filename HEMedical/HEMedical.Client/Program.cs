@@ -12,7 +12,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<IHEKeyService, HEKeyService>();
-builder.Services.AddScoped<IStatisticsService, HEStatisticsService>();
+builder.Services.AddScoped<IStatisticsService, ClientStatisticsService>();
 builder.Services.AddHttpClient<IHEServerClient, HEServerClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["HEServerBaseUrl"]!);

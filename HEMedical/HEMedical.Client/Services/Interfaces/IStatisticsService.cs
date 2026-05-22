@@ -1,4 +1,4 @@
-﻿using HEMedical.Client.Common;
+﻿using HEMedical.Shared.Common;
 using HEMedical.Shared.Models;
 
 namespace HEMedical.Client.Services.Interfaces;
