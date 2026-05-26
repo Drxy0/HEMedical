@@ -1,5 +1,6 @@
 using HEMedical.Hospital.DTOs;
 using HEMedical.Hospital.Services.Interfaces;
+using HEMedical.Shared.Common;
 using HEMedical.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,23 +15,25 @@ public class PatientQueryService : IPatientQueryService
         _context = context;
     }
 
-    public async Task<List<ObservationResult>> GetValuesByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<Result<List<ObservationResult>>> GetValuesByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
         return measurementType switch
         {
-            ClinicalMeasurementType.HbA1c => await GetHbA1cByDateRangeAsync(startDate, endDate),
-            ClinicalMeasurementType.BloodPressure => await GetBloodPressureByDateRangeAsync(startDate, endDate),
-            _ => throw new ArgumentException($"Unsupported measurement type: {measurementType}")
+            ClinicalMeasurementType.HbA1c => 
+                Result<List<ObservationResult>>.Ok(await GetHbA1cByDateRangeAsync(startDate, endDate)),
+            ClinicalMeasurementType.BloodPressure => 
+                Result<List<ObservationResult>>.Ok(await GetBloodPressureByDateRangeAsync(startDate, endDate)),
+            _ => Result<List<ObservationResult>>.Fail($"Unsupported measurement type: {measurementType}")
         };
     }
 
-    public async Task<List<ObservationResult>> GetValuesByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<Result<List<ObservationResult>>> GetValuesByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
     {
         return measurementType switch
         {
-            ClinicalMeasurementType.HbA1c => await GetHbA1cByAgeRangeAsync(startAge, endAge),
-            ClinicalMeasurementType.BloodPressure => await GetBloodPressureByAgeRangeAsync(startAge, endAge),
-            _ => throw new ArgumentException($"Unsupported measurement type: {measurementType}")
+            ClinicalMeasurementType.HbA1c => Result<List<ObservationResult>>.Ok(await GetHbA1cByAgeRangeAsync(startAge, endAge)),
+            ClinicalMeasurementType.BloodPressure => Result<List<ObservationResult>>.Ok(await GetBloodPressureByAgeRangeAsync(startAge, endAge)),
+            _ => Result<List<ObservationResult>>.Fail($"Unsupported measurement type: {measurementType}")
         };
     }
 

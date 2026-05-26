@@ -48,10 +48,12 @@ public class ObservationController : ControllerBase
         DateOnly? startDate = ParseDate(date, "ge");
         DateOnly? endDate = ParseDate(date, "le");
 
-        List<ObservationResult> observations =
-            await _queryService.GetValuesByDateRangeAsync(type.Value, startDate, endDate);
+        var result = await _queryService.GetValuesByDateRangeAsync(type.Value, startDate, endDate);
 
-        return Ok(BuildBundle(type.Value, observations));
+        if (!result.IsSuccess)
+            return Problem(result.Error);
+
+        return Ok(BuildBundle(type.Value, result.Value!));
     }
 
     private static DateOnly? ParseDate(string[]? dates, string prefix) =>

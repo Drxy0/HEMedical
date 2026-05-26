@@ -20,8 +20,15 @@ public class HEPublicKeyService : IHEPublicKeyService
         _context = new SEALContext(parms);
 
         PublicKey = new();
-        using var stream = File.OpenRead(PublicKeyPath);
-        PublicKey.Load(_context, stream);
+        try
+        {
+            using FileStream stream = File.OpenRead(PublicKeyPath);
+            PublicKey.Load(_context, stream);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception(ex.Message);
+        }
     }
 
     public SEALContext GetContext() => _context;

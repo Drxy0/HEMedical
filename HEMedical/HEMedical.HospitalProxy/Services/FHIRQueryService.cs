@@ -22,12 +22,9 @@ public class FHIRQueryService : IFHIRQueryService
             ?? throw new InvalidOperationException("FhirBaseUrl is not configured.");
     }
 
-    // -------------------------
-    // Public dispatch methods
-    // -------------------------
+    #region Public dispatch methods
 
-    public Task<List<decimal>> GetValuesByDateRangeAsync(
-        ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public Task<List<decimal>> GetValuesByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
         => measurementType switch
         {
             ClinicalMeasurementType.HbA1c => GetHbA1cByDateRangeAsync(startDate, endDate),
@@ -35,8 +32,7 @@ public class FHIRQueryService : IFHIRQueryService
             _ => throw new ArgumentOutOfRangeException(nameof(measurementType))
         };
 
-    public Task<List<decimal>> GetValuesByAgeRangeAsync(
-        ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public Task<List<decimal>> GetValuesByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
         => measurementType switch
         {
             ClinicalMeasurementType.HbA1c => GetHbA1cByAgeRangeAsync(startAge, endAge),
@@ -44,9 +40,9 @@ public class FHIRQueryService : IFHIRQueryService
             _ => throw new ArgumentOutOfRangeException(nameof(measurementType))
         };
 
-    // -------------------------
-    // Measurement-specific query methods
-    // -------------------------
+    #endregion
+
+    #region Measurement-specific query methods
 
     private async Task<List<decimal>> GetHbA1cByDateRangeAsync(DateOnly? startDate, DateOnly? endDate)
     {
@@ -94,9 +90,9 @@ public class FHIRQueryService : IFHIRQueryService
         return await FilterByAgeAndGetLatestAsync(observations, startAge, endAge);
     }
 
-    // -------------------------
-    // Core fetch logic
-    // -------------------------
+    #endregion
+
+    #region Core fetch logic
 
     /// <summary>
     /// Fetches all pages of a FHIR Bundle by following the "next" pagination links.
@@ -141,9 +137,9 @@ public class FHIRQueryService : IFHIRQueryService
         return results;
     }
 
-    // -------------------------
-    // Filtering helpers
-    // -------------------------
+    #endregion
+
+    #region Filtering helpers
 
     /// <summary>
     /// For each unique patient, takes only their most recent observation within the result set.
@@ -198,7 +194,11 @@ public class FHIRQueryService : IFHIRQueryService
     /// </summary>
     private async Task<DateOnly?> GetPatientBirthDateAsync(string patientReference)
     {
-        var response = await _httpClient.GetAsync($"{_baseUrl}/{patientReference}");
+        var url = patientReference.StartsWith("http")
+            ? patientReference
+            : $"{_baseUrl}/{patientReference}";
+
+        var response = await _httpClient.GetAsync(url);
         if (!response.IsSuccessStatusCode)
             return null;
 
@@ -212,9 +212,9 @@ public class FHIRQueryService : IFHIRQueryService
         return null;
     }
 
-    // -------------------------
-    // Observation parsers
-    // -------------------------
+    #endregion
+
+    #region Observation parsers
 
     /// <summary>
     /// Parses an HbA1c Observation resource. The value is at the top level
@@ -278,4 +278,6 @@ public class FHIRQueryService : IFHIRQueryService
 
         return new FhirObservation(patientRef, effectiveDate, value);
     }
+
+    #endregion
 }

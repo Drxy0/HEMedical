@@ -10,12 +10,14 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<IHEPublicKeyService, HEPublicKeyService>();
-builder.Services.AddScoped<IFHIRQueryService, FHIRQueryService>();
 builder.Services.AddScoped<IEncryptionService, EncryptionService>();
-builder.Services.AddHttpClient<FHIRQueryService>(client =>
-    client.BaseAddress = new Uri(builder.Configuration["FhirBaseUrl"]!));
+builder.Services.AddHttpClient<IFHIRQueryService, FHIRQueryService>(client =>
+    client.BaseAddress = new Uri(builder.Configuration["FhirBaseUrl"]
+        ?? throw new InvalidOperationException("FhirBaseUrl is not configured in appsettings.json")));
 
 var app = builder.Build();
+
+app.Services.GetRequiredService<IHEPublicKeyService>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

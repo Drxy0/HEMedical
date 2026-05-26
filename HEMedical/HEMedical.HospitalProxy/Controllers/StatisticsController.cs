@@ -19,8 +19,7 @@ public class StatisticsController : ControllerBase
     }
 
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetAverageByDateRange(
-        ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
         List<decimal> values = await _fhirQueryService.GetValuesByDateRangeAsync(measurementType, startDate, endDate);
         EncryptedAverageResult result = _encryptionService.Encrypt(values);
@@ -28,8 +27,7 @@ public class StatisticsController : ControllerBase
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetAverageByAgeRange(
-        ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<IActionResult> GetAverageByAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge)
     {
         List<decimal> values = await _fhirQueryService.GetValuesByAgeRangeAsync(measurementType, startAge, endAge);
         EncryptedAverageResult result = _encryptionService.Encrypt(values);

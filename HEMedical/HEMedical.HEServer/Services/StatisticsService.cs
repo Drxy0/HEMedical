@@ -33,14 +33,10 @@ public class StatisticsService : IStatisticsService
         try
         {
             var tasks = _settings.Urls.Select(url =>
-            {
-                var http = _httpClientFactory.CreateClient(nameof(IHospitalProxyClient));
-                http.BaseAddress = new Uri(url);
-                return new HospitalProxyClient(http).GetByDateRangeAsync(measurementType, startDate, endDate);
-            });
+                TryGetFromProxyAsync(url, client => client.GetByDateRangeAsync(measurementType, startDate, endDate)));
 
             EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
-            return Result<EncryptedAverageResult>.Ok(AggregateResults(responses));
+            return AggregateResults(responses);
         }
         catch (Exception ex)
         {
@@ -53,18 +49,30 @@ public class StatisticsService : IStatisticsService
         try
         {
             var tasks = _settings.Urls.Select(url =>
-            {
-                var http = _httpClientFactory.CreateClient(nameof(IHospitalProxyClient));
-                http.BaseAddress = new Uri(url);
-                return new HospitalProxyClient(http).GetByAgeRangeAsync(measurementType, startAge, endAge);
-            });
+                TryGetFromProxyAsync(url, client => client.GetByAgeRangeAsync(measurementType, startAge, endAge)));
 
             EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
-            return Result<EncryptedAverageResult>.Ok(AggregateResults(responses));
+            return AggregateResults(responses);
         }
         catch (Exception ex)
         {
             return Result<EncryptedAverageResult>.Fail(ex.Message);
+        }
+    }
+
+    private async Task<EncryptedAverageResult?> TryGetFromProxyAsync(
+        string url,
+        Func<IHospitalProxyClient, Task<EncryptedAverageResult?>> call)
+    {
+        try
+        {
+            var http = _httpClientFactory.CreateClient(nameof(IHospitalProxyClient));
+            http.BaseAddress = new Uri(url);
+            return await call(new HospitalProxyClient(http));
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -78,7 +86,7 @@ public class StatisticsService : IStatisticsService
     /// </summary>
     /// <param name="responses">Encrypted responses from each hospital.</param>
     /// <returns>The aggregated response <see cref="EncryptedAverageResult"/>.</returns>
-    private EncryptedAverageResult AggregateResults(EncryptedAverageResult?[] responses)
+    private Result<EncryptedAverageResult> AggregateResults(EncryptedAverageResult?[] responses)
     {
         using var evaluator = new Evaluator(_context);
 
@@ -108,7 +116,7 @@ public class StatisticsService : IStatisticsService
         }
 
         if (AreAccumulatorsEmpty(totalSum, totalCount))
-            throw new InvalidOperationException("No valid responses received from any hospital.");
+            return Result<EncryptedAverageResult>.Fail("No valid responses received from any hospital.");
 
         using var sumStream = new MemoryStream();
         totalSum!.Save(sumStream);
@@ -119,7 +127,7 @@ public class StatisticsService : IStatisticsService
         totalSum.Dispose();
         totalCount.Dispose();
 
-        return new EncryptedAverageResult(sumStream.ToArray(), countStream.ToArray());
+        return Result<EncryptedAverageResult>.Ok(new EncryptedAverageResult(sumStream.ToArray(), countStream.ToArray()));
     }
 
     private static bool AreAccumulatorsEmpty(Ciphertext? totalSum, Ciphertext? totalCount) =>
