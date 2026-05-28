@@ -1,0 +1,164 @@
+<section class="clinical-query">
+  <h1>Clinical Measurement Query</h1>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="field">
+      <label for="measurementType">
+        Measurement Type <span class="required" aria-hidden="true">*</span>
+      </label>
+      <select id="measurementType" formControlName="measurementType" required aria-required="true">
+        @for (opt of measurementTypeOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </div>
+
+    <fieldset>
+      <legend>Query By</legend>
+      <label class="radio-label">
+        <input type="radio" formControlName="queryType" value="date" />
+        Date Range
+      </label>
+      <label class="radio-label">
+        <input type="radio" formControlName="queryType" value="age" />
+        Patient Age Range
+      </label>
+    </fieldset>
+
+    @if (queryType() === 'date') {
+      <div class="field-group">
+        <div class="field">
+          <label for="startDate"
+            >Start Date <span class="required" aria-hidden="true">*</span></label
+          >
+          <input
+            id="startDate"
+            type="date"
+            formControlName="startDate"
+            [attr.aria-invalid]="
+              submitted() && form.hasError('datesRequired') && !form.controls.startDate.value
+                ? true
+                : null
+            "
+            aria-describedby="startDate-error"
+          />
+          @if (submitted() && form.hasError('datesRequired') && !form.controls.startDate.value) {
+            <span id="startDate-error" class="field-error" role="alert"
+              >Start date is required</span
+            >
+          }
+        </div>
+        <div class="field">
+          <label for="endDate">End Date <span class="required" aria-hidden="true">*</span></label>
+          <input
+            id="endDate"
+            type="date"
+            formControlName="endDate"
+            [attr.aria-invalid]="
+              submitted() && form.hasError('datesRequired') && !form.controls.endDate.value
+                ? true
+                : null
+            "
+            aria-describedby="endDate-error"
+          />
+          @if (submitted() && form.hasError('datesRequired') && !form.controls.endDate.value) {
+            <span id="endDate-error" class="field-error" role="alert">End date is required</span>
+          }
+        </div>
+      </div>
+    } @else {
+      <div class="field-group">
+        <div class="field">
+          <label for="startAge"
+            >Minimum Age <span class="required" aria-hidden="true">*</span></label
+          >
+          <input
+            id="startAge"
+            type="number"
+            formControlName="startAge"
+            min="0"
+            max="150"
+            [attr.aria-invalid]="
+              submitted() && form.hasError('agesRequired') && form.controls.startAge.value == null
+                ? true
+                : null
+            "
+            aria-describedby="startAge-error"
+          />
+          @if (
+            submitted() && form.hasError('agesRequired') && form.controls.startAge.value == null
+          ) {
+            <span id="startAge-error" class="field-error" role="alert"
+              >Minimum age is required</span
+            >
+          }
+        </div>
+        <div class="field">
+          <label for="endAge">Maximum Age <span class="required" aria-hidden="true">*</span></label>
+          <input
+            id="endAge"
+            type="number"
+            formControlName="endAge"
+            min="0"
+            max="150"
+            [attr.aria-invalid]="
+              submitted() && form.hasError('agesRequired') && form.controls.endAge.value == null
+                ? true
+                : null
+            "
+            aria-describedby="endAge-error"
+          />
+          @if (submitted() && form.hasError('agesRequired') && form.controls.endAge.value == null) {
+            <span id="endAge-error" class="field-error" role="alert">Maximum age is required</span>
+          }
+        </div>
+      </div>
+    }
+
+    <button type="submit" [disabled]="isLoading() || form.invalid">
+      @if (isLoading()) {
+        <span aria-hidden="true">Querying…</span>
+        <span class="sr-only">Loading, please wait</span>
+      } @else {
+        Query
+      }
+    </button>
+  </form>
+
+  <div aria-live="assertive" aria-atomic="true" class="error-region">
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+  </div>
+
+  <div aria-live="polite" aria-atomic="true" class="results-region">
+    @if (isLoading()) {
+      <div class="spinner-wrapper" role="status" aria-label="Loading results">
+        <div class="spinner" aria-hidden="true"></div>
+      </div>
+    }
+
+    @if (result(); as r) {
+      <section class="results">
+        <h2>Results</h2>
+        <dl>
+          @if (r.type === 'date') {
+            <div class="result-row">
+              <dt>Direct FHIR Average</dt>
+              <dd>{{ r.verification | number: '1.2-2' }} {{ unit() }}</dd>
+            </div>
+            <div class="result-row">
+              <dt>Statistics Average</dt>
+              <dd>{{ r.statistics | number: '1.2-2' }} {{ unit() }}</dd>
+            </div>
+          } @else {
+            <div class="result-row">
+              <dt>Statistics Average</dt>
+              <dd>{{ r.statistics | number: '1.2-2' }} {{ unit() }}</dd>
+            </div>
+          }
+        </dl>
+      </section>
+    }
+  </div>
+</section>

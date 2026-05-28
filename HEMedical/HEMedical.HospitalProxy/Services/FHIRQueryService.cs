@@ -251,9 +251,17 @@ public class FHIRQueryService : IFHIRQueryService
         if (!resource.TryGetProperty("subject", out var subject))
             return null;
 
-        string? patientRef = subject.GetProperty("reference").GetString();
-        if (patientRef is null)
+        string? patientRef = null;
+        try
+        {
+            patientRef = subject.GetProperty("reference").GetString();
+            if (patientRef is null)
             return null;
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return null;
+        }
 
         DateTimeOffset? effectiveDate = null;
         if (resource.TryGetProperty("effectiveDateTime", out var effective))
