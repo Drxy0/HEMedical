@@ -14,6 +14,17 @@ public class HospitalDbContext(DbContextOptions<HospitalDbContext> options) : Db
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<ClinicalMeasurement>().UseTpcMappingStrategy();
+        modelBuilder.Entity<Patient>()
+            .Property(p => p.Sex)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<BloodPressure>(e => {
+            e.Property(x => x.Systolic).HasPrecision(10, 3);
+            e.Property(x => x.Diastolic).HasPrecision(10, 3);
+        });
+        modelBuilder.Entity<Hb1Ac>(e => {
+            e.Property(x => x.Value).HasPrecision(10, 3);
+        });
     }
 
 }

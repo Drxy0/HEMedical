@@ -80,7 +80,7 @@ public class PatientQueryService : IPatientQueryService
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
-            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Systolic))
+            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Systolic, x.Diastolic))
             .ToListAsync();
     }
 
@@ -94,7 +94,7 @@ public class PatientQueryService : IPatientQueryService
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
-            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Systolic))
+            .Select(x => new ObservationResult(x.PatientId, x.RecordedAt, x.Systolic, x.Diastolic))
             .ToListAsync();
     }
 }
