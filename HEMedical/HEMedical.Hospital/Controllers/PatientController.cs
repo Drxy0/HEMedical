@@ -1,7 +1,7 @@
-using HEMedical.Hospital.Models;
+using HEMedical.Hospital.DTOs;
+using HEMedical.Hospital.Services.Interfaces;
 using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
 
 namespace HEMedical.Hospital.Controllers;
 
@@ -9,65 +9,41 @@ namespace HEMedical.Hospital.Controllers;
 [ApiController]
 public class PatientController : ControllerBase
 {
-    private readonly HospitalDbContext _context;
+    private readonly IPatientService _patientService;
 
-    public PatientController(HospitalDbContext context)
+    public PatientController(IPatientService patientService)
     {
-        _context = context;
+        _patientService = patientService;
     }
 
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var patient = await _context.Patients.FindAsync(id);
+        var patient = await _patientService.GetByIdAsync(id);
 
         if (patient is null)
             return NotFound();
 
-        return Ok(new
-        {
-            resourceType = "Patient",
-            id = patient.Id.ToString(),
-            gender = ToFhirGender(patient.Sex),
-            birthDate = patient.BirthDate.ToString("yyyy-MM-dd")
-        });
+        return Ok(ToFhirResource(patient.Id, patient.Sex, patient.BirthDate));
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] JsonElement body)
+    public async Task<IActionResult> Create([FromBody] FhirPatientInput input)
     {
-        if (!body.TryGetProperty("birthDate", out var bdEl) ||
-            !DateOnly.TryParse(bdEl.GetString(), out var birthDate))
-            return BadRequest("Missing or invalid birthDate (expected yyyy-MM-dd)");
+        var result = await _patientService.CreateAsync(input);
 
-        PatientSex sex = PatientSex.Other;
-        if (body.TryGetProperty("gender", out var genderEl))
-        {
-            sex = genderEl.GetString() switch
-            {
-                "male" => PatientSex.Male,
-                "female" => PatientSex.Female,
-                _ => PatientSex.Other
-            };
-        }
+        if (!result.IsSuccess)
+            return BadRequest(result.Error);
 
-        var patient = new Patient { BirthDate = birthDate, Sex = sex };
-        _context.Patients.Add(patient);
-        await _context.SaveChangesAsync();
-
-        return Created($"/Patient/{patient.Id}", new
-        {
-            resourceType = "Patient",
-            id = patient.Id.ToString(),
-            gender = ToFhirGender(patient.Sex),
-            birthDate = patient.BirthDate.ToString("yyyy-MM-dd")
-        });
+        var patient = result.Value!;
+        return Created($"/Patient/{patient.Id}", ToFhirResource(patient.Id, patient.Sex, patient.BirthDate));
     }
 
-    private static string ToFhirGender(PatientSex sex) => sex switch
+    private static object ToFhirResource(int id, PatientSex sex, DateOnly birthDate) => new
     {
-        PatientSex.Male => "male",
-        PatientSex.Female => "female",
-        _ => "other"
+        resourceType = "Patient",
+        id = id.ToString(),
+        gender = sex switch { PatientSex.Male => "male", PatientSex.Female => "female", _ => "other" },
+        birthDate = birthDate.ToString("yyyy-MM-dd")
     };
 }

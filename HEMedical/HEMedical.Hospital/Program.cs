@@ -1,4 +1,5 @@
 using HEMedical.Hospital;
+using HEMedical.Hospital.Fhir;
 using HEMedical.Hospital.Services;
 using HEMedical.Hospital.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,9 @@ builder.Services.AddDbContext<HospitalDbContext>(options =>
     options.UseSqlServer(builder.Configuration["Database:DefaultConnection"]));
 
 builder.Services.AddScoped<IPatientQueryService, PatientQueryService>();
+builder.Services.AddSingleton<IFhirBundleBuilder, FhirBundleBuilder>();
+builder.Services.AddScoped<IObservationService, ObservationService>();
+builder.Services.AddScoped<IPatientService, PatientService>();
 
 var app = builder.Build();
 
