@@ -104,33 +104,37 @@ fieldset {
   margin-left: 0.125rem;
 }
 
-button[type='submit'] {
-  display: block;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 200px;
-  padding: 0.625rem 1.5rem;
-  background-color: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
+.button-group {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
 
-  &:hover:not(:disabled) {
-    background-color: #1d4ed8;
-  }
+  button {
+    width: 100%;
+    max-width: 200px;
+    padding: 0.625rem 1.5rem;
+    background-color: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
 
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
+    &:hover:not(:disabled) {
+      background-color: #1d4ed8;
+    }
 
-  &:focus-visible {
-    outline: 2px solid #2563eb;
-    outline-offset: 2px;
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
+    }
   }
 }
 

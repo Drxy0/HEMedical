@@ -28,12 +28,12 @@ public class StatisticsService : IStatisticsService
         _context = new SEALContext(parms);
     }
 
-    public async Task<Result<EncryptedAverageResult>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<Result<EncryptedAverageResult>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
         try
         {
             var tasks = _settings.Urls.Select(url =>
-                TryGetFromProxyAsync(url, client => client.GetByDateRangeAsync(measurementType, startDate, endDate)));
+                TryGetFromProxyAsync(url, client => client.GetByDateRangeAsync(measurementType, startDate, endDate, sex)));
 
             EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
             return AggregateResults(responses);
@@ -44,12 +44,12 @@ public class StatisticsService : IStatisticsService
         }
     }
 
-    public async Task<Result<EncryptedAverageResult>> GetAverageByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<Result<EncryptedAverageResult>> GetAverageByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
     {
         try
         {
             var tasks = _settings.Urls.Select(url =>
-                TryGetFromProxyAsync(url, client => client.GetByAgeRangeAsync(measurementType, startAge, endAge)));
+                TryGetFromProxyAsync(url, client => client.GetByAgeRangeAsync(measurementType, startAge, endAge, sex)));
 
             EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
             return AggregateResults(responses);

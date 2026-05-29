@@ -1,17 +1,24 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { EMPTY, forkJoin } from 'rxjs';
+import { EMPTY } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
 import {
   ClinicalMeasurementType,
-  MEASUREMENT_LABELS,
-  MEASUREMENT_UNITS,
+  PatientSex,
+  QueryResult,
+  SEX_LABELS,
 } from '../../shared/models/clinical-measurement.model';
-import { VerificationService } from '../../shared/services/verification.service';
-import { StatisticsService } from '../../shared/services/statistics.service';
+import { QueryHEService } from '../../shared/services/query-he.service';
+import { QueryPlaintextService } from '../../shared/services/query-plaintext.service';
 
 type QueryType = 'date' | 'age';
 
@@ -21,6 +28,7 @@ function rangeRequired(group: AbstractControl): ValidationErrors | null {
     const start = group.get('startDate')?.value as string;
     const end = group.get('endDate')?.value as string;
     if (!start || !end) return { datesRequired: true };
+    if (start > end) return { dateRangeInvalid: true };
   }
   if (queryType === 'age') {
     const start = group.get('startAge')?.value;
@@ -29,19 +37,6 @@ function rangeRequired(group: AbstractControl): ValidationErrors | null {
   }
   return null;
 }
-
-interface DateResult {
-  readonly type: 'date';
-  readonly verification: number;
-  readonly statistics: number;
-}
-
-interface AgeResult {
-  readonly type: 'age';
-  readonly statistics: number;
-}
-
-type QueryResult = DateResult | AgeResult;
 
 @Component({
   selector: 'app-clinical-query',
@@ -52,17 +47,21 @@ type QueryResult = DateResult | AgeResult;
 })
 export class ClinicalQueryComponent {
   private readonly fb = inject(FormBuilder);
-  private readonly verificationService = inject(VerificationService);
-  private readonly statisticsService = inject(StatisticsService);
+  private readonly queryHEService = inject(QueryHEService);
+  private readonly queryPlaintextService = inject(QueryPlaintextService);
 
   readonly form = this.fb.group(
     {
-      measurementType: [ClinicalMeasurementType.BloodPressure as ClinicalMeasurementType, Validators.required],
+      measurementType: [
+        ClinicalMeasurementType.BloodPressure as ClinicalMeasurementType,
+        Validators.required,
+      ],
       queryType: ['date' as QueryType],
-      startDate: [''],
-      endDate: [''],
+      startDate: [null as string | null],
+      endDate: [null as string | null],
       startAge: [null as number | null, [Validators.min(0), Validators.max(150)]],
       endAge: [null as number | null, [Validators.min(0), Validators.max(150)]],
+      patientSex: [null as PatientSex | null],
     },
     { validators: rangeRequired },
   );
@@ -76,66 +75,86 @@ export class ClinicalQueryComponent {
     { initialValue: ClinicalMeasurementType.BloodPressure },
   );
 
-  readonly isLoading = signal(false);
+  readonly isLoadingHE = signal(false);
+  readonly isLoadingPlaintext = signal(false);
   readonly submitted = signal(false);
-  readonly error = signal<string | null>(null);
-  readonly result = signal<QueryResult | null>(null);
+  readonly heError = signal<string | null>(null);
+  readonly plaintextError = signal<string | null>(null);
+  readonly heResult = signal<QueryResult[] | null>(null);
+  readonly plaintextResult = signal<QueryResult[] | null>(null);
 
   readonly measurementTypeOptions = [
-    { value: ClinicalMeasurementType.BloodPressure, label: MEASUREMENT_LABELS[ClinicalMeasurementType.BloodPressure] },
-    { value: ClinicalMeasurementType.HbA1c, label: MEASUREMENT_LABELS[ClinicalMeasurementType.HbA1c] },
+    { value: ClinicalMeasurementType.BloodPressure, label: 'Blood Pressure' },
+    { value: ClinicalMeasurementType.HbA1c, label: 'HbA1c' },
   ];
 
-  readonly unit = computed(() => MEASUREMENT_UNITS[this.measurementTypeValue()!] ?? '');
+  readonly sexOptions = [
+    { value: PatientSex.Male, label: SEX_LABELS[PatientSex.Male] },
+    { value: PatientSex.Female, label: SEX_LABELS[PatientSex.Female] },
+    { value: PatientSex.Other, label: SEX_LABELS[PatientSex.Other] },
+  ];
 
-  onSubmit(): void {
+
+  onQueryHE(): void {
     this.submitted.set(true);
     if (this.form.invalid) return;
 
-    const { measurementType, queryType, startDate, endDate, startAge, endAge } =
+    const { measurementType, queryType, startDate, endDate, startAge, endAge, patientSex } =
       this.form.getRawValue();
 
-    this.isLoading.set(true);
-    this.error.set(null);
-    this.result.set(null);
+    const sex = patientSex ?? undefined;
 
-    if (queryType === 'date') {
-      forkJoin({
-        verification: this.verificationService.getAverageByDateRange(
-          measurementType!,
-          startDate || undefined,
-          endDate || undefined,
-        ),
-        statistics: this.statisticsService.getAverageByDateRange(
-          measurementType!,
-          startDate || undefined,
-          endDate || undefined,
-        ),
-      })
-        .pipe(
-          catchError((err: unknown) => {
-            this.error.set(this.extractErrorMessage(err));
-            return EMPTY;
-          }),
-          finalize(() => this.isLoading.set(false)),
-        )
-        .subscribe(({ verification, statistics }) => {
-          this.result.set({ type: 'date', verification, statistics });
-        });
-    } else {
-      this.statisticsService
-        .getAverageByAgeRange(measurementType!, startAge ?? undefined, endAge ?? undefined)
-        .pipe(
-          catchError((err: unknown) => {
-            this.error.set(this.extractErrorMessage(err));
-            return EMPTY;
-          }),
-          finalize(() => this.isLoading.set(false)),
-        )
-        .subscribe((statistics) => {
-          this.result.set({ type: 'age', statistics });
-        });
-    }
+    this.isLoadingHE.set(true);
+    this.heError.set(null);
+    this.heResult.set(null);
+
+    const request$ =
+      queryType === 'date'
+        ? this.queryHEService.getAverageByDateRange(
+            measurementType!,
+            startDate ?? undefined,
+            endDate ?? undefined,
+            sex,
+          )
+        : this.queryHEService.getAverageByAgeRange(
+            measurementType!,
+            startAge ?? undefined,
+            endAge ?? undefined,
+            sex,
+          );
+
+    request$
+      .pipe(
+        catchError((err: unknown) => {
+          this.heError.set(this.extractErrorMessage(err));
+          return EMPTY;
+        }),
+        finalize(() => this.isLoadingHE.set(false)),
+      )
+      .subscribe((result) => this.heResult.set(result));
+  }
+
+  onQueryPlaintext(): void {
+    this.submitted.set(true);
+    if (this.form.invalid) return;
+
+    const { measurementType, startDate, endDate, patientSex } = this.form.getRawValue();
+    const sex = patientSex ?? undefined;
+
+    this.isLoadingPlaintext.set(true);
+    this.plaintextError.set(null);
+    this.plaintextResult.set(null);
+
+    this.queryPlaintextService
+      .getAverageByDateRange(measurementType!, startDate ?? undefined, endDate ?? undefined, sex)
+      .pipe(
+        catchError((err: unknown) => {
+          this.plaintextError.set(this.extractErrorMessage(err));
+          return EMPTY;
+        }),
+        finalize(() => this.isLoadingPlaintext.set(false)),
+      )
+      .subscribe((result) => this.plaintextResult.set(result));
   }
 
   private extractErrorMessage(err: unknown): string {

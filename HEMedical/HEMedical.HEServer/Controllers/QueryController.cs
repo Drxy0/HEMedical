@@ -9,16 +9,16 @@ namespace HEMedical.HEServer.Controllers;
 public class QueryController(IStatisticsService _statService) : ControllerBase
 {
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        var result = await _statService.GetAverageByDateRangeAsync(measurementType, startDate, endDate);
+        var result = await _statService.GetAverageByDateRangeAsync(measurementType, startDate, endDate, sex);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetAverageByAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<IActionResult> GetAverageByAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
     {
-        var result = await _statService.GetAverageByAgeRangeAsync(measurementType, startAge, endAge);
+        var result = await _statService.GetAverageByAgeRangeAsync(measurementType, startAge, endAge, sex);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 }

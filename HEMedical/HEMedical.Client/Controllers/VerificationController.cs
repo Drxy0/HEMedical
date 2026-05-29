@@ -1,4 +1,6 @@
+using HEMedical.Client.DTOs;
 using HEMedical.Client.Services.Interfaces;
+using HEMedical.Shared.Common;
 using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 

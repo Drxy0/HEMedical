@@ -1,6 +1,7 @@
 ﻿using HEMedical.HospitalProxy.Services.Interfaces;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace HEMedical.HospitalProxy.Controllers;
@@ -19,17 +20,17 @@ public class StatisticsController : ControllerBase
     }
 
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        List<decimal> values = await _fhirQueryService.GetValuesByDateRangeAsync(measurementType, startDate, endDate);
+        List<decimal> values = await _fhirQueryService.GetValuesByDateRangeAsync(measurementType, startDate, endDate, sex);
         EncryptedAverageResult result = _encryptionService.Encrypt(values);
         return Ok(result);
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetAverageByAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public async Task<IActionResult> GetAverageByAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
     {
-        List<decimal> values = await _fhirQueryService.GetValuesByAgeRangeAsync(measurementType, startAge, endAge);
+        List<decimal> values = await _fhirQueryService.GetValuesByAgeRangeAsync(measurementType, startAge, endAge, sex);
         EncryptedAverageResult result = _encryptionService.Encrypt(values);
         return Ok(result);
     }

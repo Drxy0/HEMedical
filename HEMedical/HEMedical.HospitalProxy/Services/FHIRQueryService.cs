@@ -3,6 +3,7 @@ using HEMedical.HospitalProxy.Services.Interfaces;
 using HEMedical.Shared.Models;
 using System.Text.Json;
 
+
 namespace HEMedical.HospitalProxy.Services;
 
 public class FHIRQueryService : IFHIRQueryService
@@ -14,6 +15,7 @@ public class FHIRQueryService : IFHIRQueryService
     private const string HbA1cCode = "4548-4";
     private const string BloodPressureCode = "85354-9";
     private const string SystolicCode = "8480-6";
+    private const string DiastolicCode = "8462-4";
 
     public FHIRQueryService(HttpClient httpClient)
     {
@@ -24,19 +26,23 @@ public class FHIRQueryService : IFHIRQueryService
 
     #region Public dispatch methods
 
-    public Task<List<decimal>> GetValuesByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public Task<List<decimal>> GetValuesByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
         => measurementType switch
         {
-            ClinicalMeasurementType.HbA1c => GetHbA1cByDateRangeAsync(startDate, endDate),
-            ClinicalMeasurementType.BloodPressure => GetBloodPressureByDateRangeAsync(startDate, endDate),
+            ClinicalMeasurementType.HbA1c => GetHbA1cByDateRangeAsync(startDate, endDate, sex),
+            ClinicalMeasurementType.BloodPressure or
+            ClinicalMeasurementType.SystolicBloodPressure => GetBloodPressureComponentByDateRangeAsync(SystolicCode, startDate, endDate, sex),
+            ClinicalMeasurementType.DiastolicBloodPressure => GetBloodPressureComponentByDateRangeAsync(DiastolicCode, startDate, endDate, sex),
             _ => throw new ArgumentOutOfRangeException(nameof(measurementType))
         };
 
-    public Task<List<decimal>> GetValuesByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    public Task<List<decimal>> GetValuesByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
         => measurementType switch
         {
-            ClinicalMeasurementType.HbA1c => GetHbA1cByAgeRangeAsync(startAge, endAge),
-            ClinicalMeasurementType.BloodPressure => GetBloodPressureByAgeRangeAsync(startAge, endAge),
+            ClinicalMeasurementType.HbA1c => GetHbA1cByAgeRangeAsync(startAge, endAge, sex),
+            ClinicalMeasurementType.BloodPressure or
+            ClinicalMeasurementType.SystolicBloodPressure => GetBloodPressureComponentByAgeRangeAsync(SystolicCode, startAge, endAge, sex),
+            ClinicalMeasurementType.DiastolicBloodPressure => GetBloodPressureComponentByAgeRangeAsync(DiastolicCode, startAge, endAge, sex),
             _ => throw new ArgumentOutOfRangeException(nameof(measurementType))
         };
 
@@ -44,7 +50,7 @@ public class FHIRQueryService : IFHIRQueryService
 
     #region Measurement-specific query methods
 
-    private async Task<List<decimal>> GetHbA1cByDateRangeAsync(DateOnly? startDate, DateOnly? endDate)
+    private async Task<List<decimal>> GetHbA1cByDateRangeAsync(DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
         var url = $"{_baseUrl}/Observation?code={HbA1cCode}&_count=1000";
 
@@ -54,10 +60,12 @@ public class FHIRQueryService : IFHIRQueryService
             url += $"&date=le{endDate.Value:yyyy-MM-dd}";
 
         var observations = await FetchAllObservationsAsync(url, ParseHbA1cObservation);
-        return LatestPerPatient(observations);
+        return sex.HasValue
+            ? await FilterBySexAndGetLatestAsync(observations, sex.Value)
+            : LatestPerPatient(observations);
     }
 
-    private async Task<List<decimal>> GetBloodPressureByDateRangeAsync(DateOnly? startDate, DateOnly? endDate)
+    private async Task<List<decimal>> GetBloodPressureComponentByDateRangeAsync(string componentCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
         var url = $"{_baseUrl}/Observation?code={BloodPressureCode}&_count=1000";
 
@@ -66,8 +74,28 @@ public class FHIRQueryService : IFHIRQueryService
         if (endDate.HasValue)
             url += $"&date=le{endDate.Value:yyyy-MM-dd}";
 
-        var observations = await FetchAllObservationsAsync(url, ParseBloodPressureObservation);
-        return LatestPerPatient(observations);
+        var observations = await FetchAllObservationsAsync(url, resource => ParseBloodPressureComponent(resource, componentCode));
+        return sex.HasValue
+            ? await FilterBySexAndGetLatestAsync(observations, sex.Value)
+            : LatestPerPatient(observations);
+    }
+
+    private async Task<List<decimal>> FilterBySexAndGetLatestAsync(List<FhirObservation> observations, PatientSex sex)
+    {
+        List<string> patientRefs = observations
+            .Select(o => o.PatientReference)
+            .Distinct()
+            .ToList();
+
+        var sexTasks = patientRefs.Select(async r => (Reference: r, Sex: await GetPatientSexAsync(r)));
+        var resolved = await Task.WhenAll(sexTasks);
+
+        HashSet<string> eligiblePatients = resolved
+            .Where(x => x.Sex == sex)
+            .Select(x => x.Reference)
+            .ToHashSet();
+
+        return LatestPerPatient(observations.Where(o => eligiblePatients.Contains(o.PatientReference)).ToList());
     }
 
     /// <summary>
@@ -76,18 +104,18 @@ public class FHIRQueryService : IFHIRQueryService
     /// via a separate FHIR Patient lookup, filtering client-side.
     /// This is less efficient but necessary given FHIR's query limitations.
     /// </summary>
-    private async Task<List<decimal>> GetHbA1cByAgeRangeAsync(int startAge, int endAge)
+    private async Task<List<decimal>> GetHbA1cByAgeRangeAsync(int startAge, int endAge, PatientSex? sex)
     {
         var url = $"{_baseUrl}/Observation?code={HbA1cCode}&_count=1000";
         var observations = await FetchAllObservationsAsync(url, ParseHbA1cObservation);
-        return await FilterByAgeAndGetLatestAsync(observations, startAge, endAge);
+        return await FilterByAgeAndSexAndGetLatestAsync(observations, startAge, endAge, sex);
     }
 
-    private async Task<List<decimal>> GetBloodPressureByAgeRangeAsync(int startAge, int endAge)
+    private async Task<List<decimal>> GetBloodPressureComponentByAgeRangeAsync(string componentCode, int startAge, int endAge, PatientSex? sex)
     {
         var url = $"{_baseUrl}/Observation?code={BloodPressureCode}&_count=1000";
-        var observations = await FetchAllObservationsAsync(url, ParseBloodPressureObservation);
-        return await FilterByAgeAndGetLatestAsync(observations, startAge, endAge);
+        var observations = await FetchAllObservationsAsync(url, resource => ParseBloodPressureComponent(resource, componentCode));
+        return await FilterByAgeAndSexAndGetLatestAsync(observations, startAge, endAge, sex);
     }
 
     #endregion
@@ -152,37 +180,55 @@ public class FHIRQueryService : IFHIRQueryService
             .Select(o => o.Value!.Value)
             .ToList();
 
-    /// <summary>
-    /// Filters observations by patient age by fetching each patient's birth date
-    /// from the FHIR server. Patients whose age falls outside [startAge, endAge] are excluded.
-    /// After filtering, returns the latest observation value per patient.
-    /// </summary>
-    private async Task<List<decimal>> FilterByAgeAndGetLatestAsync(
-        List<FhirObservation> observations, int startAge, int endAge)
+    private async Task<List<decimal>> FilterByAgeAndSexAndGetLatestAsync(
+        List<FhirObservation> observations, int startAge, int endAge, PatientSex? sex)
     {
-        // Get distinct patient references to avoid redundant lookups
         List<string> patientRefs = observations
             .Select(o => o.PatientReference)
             .Distinct()
             .ToList();
 
-        // Resolve birth dates for all patients in parallel
-        var birthDateTasks = patientRefs.Select(async r => (Reference: r, BirthDate: await GetPatientBirthDateAsync(r)));
-        Dictionary<string, DateOnly> birthDates = (await Task.WhenAll(birthDateTasks))
-            .Where(x => x.BirthDate.HasValue)
-            .ToDictionary(x => x.Reference, x => x.BirthDate!.Value);
+        var patientTasks = patientRefs.Select(async r =>
+        {
+            var url = r.StartsWith("http") ? r : $"{_baseUrl}/{r}";
+            var response = await _httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode) return (Reference: r, BirthDate: (DateOnly?)null, Sex: (PatientSex?)null);
 
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            DateOnly? birthDate = null;
+            if (root.TryGetProperty("birthDate", out var bd) && DateOnly.TryParse(bd.GetString(), out var d))
+                birthDate = d;
+
+            PatientSex? patientSex = null;
+            if (root.TryGetProperty("gender", out var g))
+                patientSex = g.GetString() switch
+                {
+                    "male" => PatientSex.Male,
+                    "female" => PatientSex.Female,
+                    "other" => PatientSex.Other,
+                    _ => null
+                };
+
+            return (Reference: r, BirthDate: birthDate, Sex: patientSex);
+        });
+
+        var patients = await Task.WhenAll(patientTasks);
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
 
-        // Keep only patients whose age falls within the requested range
-        HashSet<string> eligiblePatients = birthDates
-            .Where(kvp =>
+        HashSet<string> eligiblePatients = patients
+            .Where(p =>
             {
-                int age = today.Year - kvp.Value.Year;
-                if (kvp.Value.AddYears(age) > today) age--;
-                return age >= startAge && age <= endAge;
+                if (!p.BirthDate.HasValue) return false;
+                int age = today.Year - p.BirthDate.Value.Year;
+                if (p.BirthDate.Value.AddYears(age) > today) age--;
+                if (age < startAge || age > endAge) return false;
+                if (sex.HasValue && p.Sex != sex) return false;
+                return true;
             })
-            .Select(kvp => kvp.Key)
+            .Select(p => p.Reference)
             .ToHashSet();
 
         return LatestPerPatient(observations.Where(o => eligiblePatients.Contains(o.PatientReference)).ToList());
@@ -210,6 +256,31 @@ public class FHIRQueryService : IFHIRQueryService
             return date;
 
         return null;
+    }
+
+    private async Task<PatientSex?> GetPatientSexAsync(string patientReference)
+    {
+        var url = patientReference.StartsWith("http")
+            ? patientReference
+            : $"{_baseUrl}/{patientReference}";
+
+        var response = await _httpClient.GetAsync(url);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+
+        if (!doc.RootElement.TryGetProperty("gender", out var gender))
+            return null;
+
+        return gender.GetString() switch
+        {
+            "male" => PatientSex.Male,
+            "female" => PatientSex.Female,
+            "other" => PatientSex.Other,
+            _ => null
+        };
     }
 
     #endregion
@@ -242,26 +313,17 @@ public class FHIRQueryService : IFHIRQueryService
     }
 
     /// <summary>
-    /// Parses a Blood Pressure Observation resource. Blood pressure is a panel —
-    /// the value is not at the top level but inside the component array.
-    /// We extract only the systolic component (LOINC 8480-6).
+    /// Parses a Blood Pressure panel Observation, extracting the component identified by
+    /// <paramref name="componentCode"/> (e.g. systolic 8480-6 or diastolic 8462-4).
     /// </summary>
-    private static FhirObservation? ParseBloodPressureObservation(JsonElement resource)
+    private static FhirObservation? ParseBloodPressureComponent(JsonElement resource, string componentCode)
     {
         if (!resource.TryGetProperty("subject", out var subject))
             return null;
 
-        string? patientRef = null;
-        try
-        {
-            patientRef = subject.GetProperty("reference").GetString();
-            if (patientRef is null)
+        string? patientRef = subject.TryGetProperty("reference", out var refProp) ? refProp.GetString() : null;
+        if (patientRef is null)
             return null;
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return null;
-        }
 
         DateTimeOffset? effectiveDate = null;
         if (resource.TryGetProperty("effectiveDateTime", out var effective))
@@ -270,16 +332,16 @@ public class FHIRQueryService : IFHIRQueryService
         decimal? value = null;
         if (resource.TryGetProperty("component", out var components))
         {
-            var systolic = components.EnumerateArray()
+            var component = components.EnumerateArray()
                 .FirstOrDefault(c =>
                     c.TryGetProperty("code", out var code) &&
                     code.TryGetProperty("coding", out var coding) &&
                     coding.EnumerateArray().Any(x =>
                         x.TryGetProperty("code", out var codeVal) &&
-                        codeVal.GetString() == SystolicCode));
+                        codeVal.GetString() == componentCode));
 
-            if (systolic.ValueKind != JsonValueKind.Undefined &&
-                systolic.TryGetProperty("valueQuantity", out var vq) &&
+            if (component.ValueKind != JsonValueKind.Undefined &&
+                component.TryGetProperty("valueQuantity", out var vq) &&
                 vq.TryGetProperty("value", out var vqVal))
                 value = vqVal.GetDecimal();
         }

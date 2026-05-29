@@ -1,7 +1,7 @@
 <section class="clinical-query">
   <h1>Clinical Measurement Query</h1>
 
-  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+  <form [formGroup]="form" novalidate>
     <div class="field">
       <label for="measurementType">
         Measurement Type <span class="required" aria-hidden="true">*</span>
@@ -66,6 +66,9 @@
           }
         </div>
       </div>
+      @if (submitted() && form.hasError('dateRangeInvalid')) {
+        <p class="field-error" role="alert">Start date must be before end date.</p>
+      }
     } @else {
       <div class="field-group">
         <div class="field">
@@ -79,7 +82,9 @@
             min="0"
             max="150"
             [attr.aria-invalid]="
-              submitted() && form.hasError('agesRequired') && form.controls.startAge.value == null
+              submitted() &&
+              ((form.hasError('agesRequired') && form.controls.startAge.value == null) ||
+                form.controls.startAge.invalid)
                 ? true
                 : null
             "
@@ -90,6 +95,10 @@
           ) {
             <span id="startAge-error" class="field-error" role="alert"
               >Minimum age is required</span
+            >
+          } @else if (form.controls.startAge.invalid) {
+            <span id="startAge-error" class="field-error" role="alert"
+              >Age must be between 0 and 150</span
             >
           }
         </div>
@@ -102,7 +111,9 @@
             min="0"
             max="150"
             [attr.aria-invalid]="
-              submitted() && form.hasError('agesRequired') && form.controls.endAge.value == null
+              submitted() &&
+              ((form.hasError('agesRequired') && form.controls.endAge.value == null) ||
+                form.controls.endAge.invalid)
                 ? true
                 : null
             "
@@ -110,52 +121,90 @@
           />
           @if (submitted() && form.hasError('agesRequired') && form.controls.endAge.value == null) {
             <span id="endAge-error" class="field-error" role="alert">Maximum age is required</span>
+          } @else if (form.controls.endAge.invalid) {
+            <span id="endAge-error" class="field-error" role="alert"
+              >Age must be between 0 and 150</span
+            >
           }
         </div>
       </div>
     }
 
-    <button type="submit" [disabled]="isLoading() || form.invalid">
-      @if (isLoading()) {
-        <span aria-hidden="true">Querying…</span>
-        <span class="sr-only">Loading, please wait</span>
-      } @else {
-        Query
-      }
-    </button>
+    <div class="field">
+      <label for="patientSex">Patient Sex</label>
+      <select id="patientSex" formControlName="patientSex">
+        <option [value]="null">All</option>
+        @for (opt of sexOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="button-group">
+      <button
+        type="button"
+        (click)="onQueryHE()"
+        [disabled]="isLoadingHE() || isLoadingPlaintext()"
+      >
+        @if (isLoadingHE()) {
+          <span aria-hidden="true">Querying…</span>
+          <span class="sr-only">Loading HE query, please wait</span>
+        } @else {
+          Query HE
+        }
+      </button>
+      <button
+        type="button"
+        (click)="onQueryPlaintext()"
+        [disabled]="isLoadingHE() || isLoadingPlaintext() || queryType() === 'age'"
+        [attr.aria-disabled]="queryType() === 'age' ? true : null"
+        [title]="queryType() === 'age' ? 'Plaintext query is only available for date range' : null"
+      >
+        @if (isLoadingPlaintext()) {
+          <span aria-hidden="true">Querying…</span>
+          <span class="sr-only">Loading plaintext query, please wait</span>
+        } @else {
+          Query Plaintext
+        }
+      </button>
+    </div>
   </form>
 
   <div aria-live="assertive" aria-atomic="true" class="error-region">
-    @if (error()) {
-      <p class="error">{{ error() }}</p>
+    @if (heError()) {
+      <p class="error"><strong>HE Query:</strong> {{ heError() }}</p>
+    }
+    @if (plaintextError()) {
+      <p class="error"><strong>Plaintext Query:</strong> {{ plaintextError() }}</p>
     }
   </div>
 
   <div aria-live="polite" aria-atomic="true" class="results-region">
-    @if (isLoading()) {
+    @if (isLoadingHE() || isLoadingPlaintext()) {
       <div class="spinner-wrapper" role="status" aria-label="Loading results">
         <div class="spinner" aria-hidden="true"></div>
       </div>
     }
 
-    @if (result(); as r) {
+    @if (heResult() !== null || plaintextResult() !== null) {
       <section class="results">
         <h2>Results</h2>
         <dl>
-          @if (r.type === 'date') {
-            <div class="result-row">
-              <dt>Direct FHIR Average</dt>
-              <dd>{{ r.verification | number: '1.2-2' }} {{ unit() }}</dd>
-            </div>
-            <div class="result-row">
-              <dt>Statistics Average</dt>
-              <dd>{{ r.statistics | number: '1.2-2' }} {{ unit() }}</dd>
-            </div>
-          } @else {
-            <div class="result-row">
-              <dt>Statistics Average</dt>
-              <dd>{{ r.statistics | number: '1.2-2' }} {{ unit() }}</dd>
-            </div>
+          @if (heResult(); as heItems) {
+            @for (he of heItems; track he.measurementName) {
+              <div class="result-row">
+                <dt>{{ he.measurementName }} (HE)</dt>
+                <dd>{{ he.value | number: '1.2-2' }} {{ he.unitOfMeasurement }}</dd>
+              </div>
+            }
+          }
+          @if (plaintextResult(); as ptItems) {
+            @for (pt of ptItems; track pt.measurementName) {
+              <div class="result-row">
+                <dt>{{ pt.measurementName }} (Plaintext)</dt>
+                <dd>{{ pt.value | number: '1.2-2' }} {{ pt.unitOfMeasurement }}</dd>
+              </div>
+            }
           }
         </dl>
       </section>

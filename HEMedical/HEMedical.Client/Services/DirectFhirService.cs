@@ -1,3 +1,4 @@
+using HEMedical.Client.DTOs;
 using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.Common;
 using HEMedical.Shared.Models;
@@ -5,7 +6,7 @@ using System.Text.Json.Nodes;
 
 namespace HEMedical.Client.Services;
 
-public class DirectFhirService : IDirectFhirService
+internal class DirectFhirService : IDirectFhirService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<DirectFhirService> _logger;
@@ -14,6 +15,7 @@ public class DirectFhirService : IDirectFhirService
     private const string HbA1cCode = "4548-4";
     private const string BloodPressureCode = "85354-9";
     private const string SystolicCode = "8480-6";
+    private const string DiastolicCode = "8462-4";
 
     public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logger)
     {
@@ -27,24 +29,48 @@ public class DirectFhirService : IDirectFhirService
 
     #region Public API
 
-    public async Task<Result<double>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
     {
         if (_baseUrl is null)
-            return Result<double>.Fail("FhirVerificationUrl is not configured.");
+            return Result<IReadOnlyList<QueryResult>>.Fail("FhirVerificationUrl is not configured.");
 
         try
         {
-            return measurementType switch
+            if (measurementType == ClinicalMeasurementType.BloodPressure)
+            {
+                var (systolicTask, diastolicTask) = (
+                    GetAverageAsync(BloodPressureCode, ParseSystolic, startDate, endDate),
+                    GetAverageAsync(BloodPressureCode, ParseDiastolic, startDate, endDate)
+                );
+                await Task.WhenAll(systolicTask, diastolicTask);
+                
+                Result<double> systolic = await systolicTask;
+                Result<double> diastolic = await diastolicTask;
+
+                if (!systolic.IsSuccess)
+                    return Result<IReadOnlyList<QueryResult>>.Fail(systolic.Error ?? "Systolic query failed.");
+                if (!diastolic.IsSuccess)
+                    return Result<IReadOnlyList<QueryResult>>.Fail(diastolic.Error ?? "Diastolic query failed.");
+
+                return Result<IReadOnlyList<QueryResult>>.Ok([
+                    new QueryResult(ClinicalMeasurementType.SystolicBloodPressure.GetName(), systolic.Value, ClinicalMeasurementType.SystolicBloodPressure.GetUnit()),
+                    new QueryResult(ClinicalMeasurementType.DiastolicBloodPressure.GetName(), diastolic.Value, ClinicalMeasurementType.DiastolicBloodPressure.GetUnit()),
+                ]);
+            }
+
+            Result<double> valueResult = measurementType switch
             {
                 ClinicalMeasurementType.HbA1c => await GetAverageAsync(HbA1cCode, ParseHbA1c, startDate, endDate),
-                ClinicalMeasurementType.BloodPressure => await GetAverageAsync(BloodPressureCode, ParseSystolic, startDate, endDate),
                 _ => Result<double>.Fail($"Unsupported measurement type: {measurementType}")
             };
+            return valueResult.IsSuccess
+                ? Result<IReadOnlyList<QueryResult>>.Ok([new QueryResult(measurementType.GetName(), valueResult.Value, measurementType.GetUnit())])
+                : Result<IReadOnlyList<QueryResult>>.Fail(valueResult.Error ?? "Query failed.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to fetch FHIR data for {MeasurementType}.", measurementType);
-            return Result<double>.Fail(ex.Message);
+            return Result<IReadOnlyList<QueryResult>>.Fail(ex.Message);
         }
     }
 
@@ -177,7 +203,30 @@ public class DirectFhirService : IDirectFhirService
         return new FhirObservation(patientRef, date, value.Value);
     }
 
-    #endregion
+
+    private static FhirObservation? ParseDiastolic(JsonNode resource)
+    {
+        string? patientRef = resource["subject"]?["reference"]?.GetValue<string>();
+        if (patientRef is null) return null;
+
+        DateTimeOffset? date = null;
+        if (resource["effectiveDateTime"] is JsonNode dt)
+            date = DateTimeOffset.Parse(dt.GetValue<string>());
+
+        decimal? value = resource["component"]
+            ?.AsArray()
+            .FirstOrDefault(c => c?["code"]?["coding"]
+                ?.AsArray()
+                .Any(x => x?["code"]?.GetValue<string>() == DiastolicCode) == true)
+            ?["valueQuantity"]
+            ?["value"]
+            ?.GetValue<decimal>();
+
+        if (value is null) return null;
+        return new FhirObservation(patientRef, date, value.Value);
+    }
+
+    #endregion Observation parsers
 
     private record struct FhirObservation(string PatientRef, DateTimeOffset? Date, decimal Value);
 }

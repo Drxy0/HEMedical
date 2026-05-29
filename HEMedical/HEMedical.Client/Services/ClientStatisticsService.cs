@@ -1,4 +1,5 @@
 using HEMedical.Client.Clients.Interfaces;
+using HEMedical.Client.DTOs;
 using HEMedical.Shared.Common;
 using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.DTOs;
@@ -7,7 +8,7 @@ using Microsoft.Research.SEAL;
 
 namespace HEMedical.Client.Services;
 
-public class ClientStatisticsService : IStatisticsService
+internal class ClientStatisticsService : IStatisticsService
 {
     private readonly IHEServerClient _heServerClient;
     private readonly IHEKeyService _keyService;
@@ -18,35 +19,68 @@ public class ClientStatisticsService : IStatisticsService
         _keyService = keyService;
     }
 
-    public async Task<Result<double>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate)
+    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        EncryptedAverageResult? result = await _heServerClient.GetAverageByDateRangeAsync(measurementType, startDate, endDate);
-        if (result is null)
-            return Result<double>.Fail("No data returned from HE Server.");
+        if (measurementType == ClinicalMeasurementType.BloodPressure)
+        {
+            var (systolicTask, diastolicTask) = (
+                _heServerClient.GetAverageByDateRangeAsync(ClinicalMeasurementType.SystolicBloodPressure, startDate, endDate, sex),
+                _heServerClient.GetAverageByDateRangeAsync(ClinicalMeasurementType.DiastolicBloodPressure, startDate, endDate, sex)
+            );
+            await Task.WhenAll(systolicTask, diastolicTask);
+            return DecryptPair(await systolicTask, await diastolicTask);
+        }
+
+        EncryptedAverageResult? result = await _heServerClient.GetAverageByDateRangeAsync(measurementType, startDate, endDate, sex);
+        return DecryptSingle(measurementType, result);
+    }
+
+    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
+    {
+        if (measurementType == ClinicalMeasurementType.BloodPressure)
+        {
+            var (systolicTask, diastolicTask) = (
+                _heServerClient.GetAverageByAgeRangeAsync(ClinicalMeasurementType.SystolicBloodPressure, startAge, endAge, sex),
+                _heServerClient.GetAverageByAgeRangeAsync(ClinicalMeasurementType.DiastolicBloodPressure, startAge, endAge, sex)
+            );
+            await Task.WhenAll(systolicTask, diastolicTask);
+            return DecryptPair(await systolicTask, await diastolicTask);
+        }
+
+        EncryptedAverageResult? result = await _heServerClient.GetAverageByAgeRangeAsync(measurementType, startAge, endAge, sex);
+        return DecryptSingle(measurementType, result);
+    }
+
+    private Result<IReadOnlyList<QueryResult>> DecryptSingle(ClinicalMeasurementType type, EncryptedAverageResult? encrypted)
+    {
+        if (encrypted is null)
+            return Result<IReadOnlyList<QueryResult>>.Fail("No data returned from HE Server.");
 
         try
         {
-            return Result<double>.Ok(Decrypt(result));
+            var queryResult = new QueryResult(type.GetName(), Decrypt(encrypted), type.GetUnit());
+            return Result<IReadOnlyList<QueryResult>>.Ok([queryResult]);
         }
         catch (Exception ex)
         {
-            return Result<double>.Fail($"Decryption failed: {ex.Message}");
+            return Result<IReadOnlyList<QueryResult>>.Fail($"Decryption failed: {ex.Message}");
         }
     }
 
-    public async Task<Result<double>> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge)
+    private Result<IReadOnlyList<QueryResult>> DecryptPair(EncryptedAverageResult? systolicEncrypted, EncryptedAverageResult? diastolicEncrypted)
     {
-        EncryptedAverageResult? result = await _heServerClient.GetAverageByAgeRangeAsync(measurementType, startAge, endAge);
-        if (result is null)
-            return Result<double>.Fail("No data returned from HE Server.");
-
+        if (systolicEncrypted is null || diastolicEncrypted is null)
+            return Result<IReadOnlyList<QueryResult>>.Fail("No data returned from HE Server.");
         try
         {
-            return Result<double>.Ok(Decrypt(result));
+            return Result<IReadOnlyList<QueryResult>>.Ok([
+                new QueryResult(ClinicalMeasurementType.SystolicBloodPressure.GetName(), Decrypt(systolicEncrypted), ClinicalMeasurementType.SystolicBloodPressure.GetUnit()),
+                new QueryResult(ClinicalMeasurementType.DiastolicBloodPressure.GetName(), Decrypt(diastolicEncrypted), ClinicalMeasurementType.DiastolicBloodPressure.GetUnit()),
+            ]);
         }
         catch (Exception ex)
         {
-            return Result<double>.Fail($"Decryption failed: {ex.Message}");
+            return Result<IReadOnlyList<QueryResult>>.Fail($"Decryption failed: {ex.Message}");
         }
     }
 
