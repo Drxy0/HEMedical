@@ -19,4 +19,17 @@ export class QueryPlaintextService {
     if (sex) params = params.set('sex', sex);
     return this.http.get<QueryResult[]>('/api/verification/by-date', { params });
   }
+
+  getAverageByAgeRange(
+    measurementType: ClinicalMeasurementType,
+    startAge?: number,
+    endAge?: number,
+    sex?: PatientSex,
+  ): Observable<QueryResult[]> {
+    let params = new HttpParams().set('measurementType', measurementType);
+    if (startAge != null) params = params.set('startAge', startAge);
+    if (endAge != null) params = params.set('endAge', endAge);
+    if (sex) params = params.set('sex', sex);
+    return this.http.get<QueryResult[]>('/api/verification/by-age', { params });
+  }
 }

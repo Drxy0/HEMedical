@@ -100,8 +100,6 @@ internal class ClientStatisticsService : IStatisticsService
     /// Decrypts a CKKS ciphertext vector and sums all slots to produce a single scalar value.
     /// Each slot corresponds to one patient's value. Unused slots are padded with zeros and contribute 0 to the sum.
     /// </summary>
-    /// <param name="encryptedBytes">Serialized CKKS ciphertext vector as a byte array.</param>
-    /// <returns>The sum of all decrypted slot values.</returns>
     private double DecryptAndSumVector(byte[] encryptedBytes)
     {
         SEALContext context = _keyService.GetContext();

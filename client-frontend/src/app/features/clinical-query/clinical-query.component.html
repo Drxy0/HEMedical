@@ -156,9 +156,7 @@
       <button
         type="button"
         (click)="onQueryPlaintext()"
-        [disabled]="isLoadingHE() || isLoadingPlaintext() || queryType() === 'age'"
-        [attr.aria-disabled]="queryType() === 'age' ? true : null"
-        [title]="queryType() === 'age' ? 'Plaintext query is only available for date range' : null"
+        [disabled]="isLoadingHE() || isLoadingPlaintext()"
       >
         @if (isLoadingPlaintext()) {
           <span aria-hidden="true">Querying…</span>

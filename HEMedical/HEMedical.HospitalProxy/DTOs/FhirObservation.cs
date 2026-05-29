@@ -3,5 +3,5 @@
 public record FhirObservation(
     string PatientReference,
     DateTimeOffset? EffectiveDate,
-    decimal? Value
+    decimal Value
 );

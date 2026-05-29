@@ -138,16 +138,30 @@ export class ClinicalQueryComponent {
     this.submitted.set(true);
     if (this.form.invalid) return;
 
-    const { measurementType, startDate, endDate, patientSex } = this.form.getRawValue();
+    const { measurementType, queryType, startDate, endDate, startAge, endAge, patientSex } =
+      this.form.getRawValue();
     const sex = patientSex ?? undefined;
 
     this.isLoadingPlaintext.set(true);
     this.plaintextError.set(null);
     this.plaintextResult.set(null);
 
-    this.queryPlaintextService
-      .getAverageByDateRange(measurementType!, startDate ?? undefined, endDate ?? undefined, sex)
-      .pipe(
+    const request$ =
+      queryType === 'date'
+        ? this.queryPlaintextService.getAverageByDateRange(
+            measurementType!,
+            startDate ?? undefined,
+            endDate ?? undefined,
+            sex,
+          )
+        : this.queryPlaintextService.getAverageByAgeRange(
+            measurementType!,
+            startAge ?? undefined,
+            endAge ?? undefined,
+            sex,
+          );
+
+    request$.pipe(
         catchError((err: unknown) => {
           this.plaintextError.set(this.extractErrorMessage(err));
           return EMPTY;

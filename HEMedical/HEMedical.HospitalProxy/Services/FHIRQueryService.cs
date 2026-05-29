@@ -174,10 +174,9 @@ public class FHIRQueryService : IFHIRQueryService
     /// </summary>
     private static List<decimal> LatestPerPatient(List<FhirObservation> observations) =>
         observations
-            .Where(o => o.Value.HasValue)
             .GroupBy(o => o.PatientReference)
             .Select(g => g.OrderByDescending(o => o.EffectiveDate).First())
-            .Select(o => o.Value!.Value)
+            .Select(o => o.Value)
             .ToList();
 
     private async Task<List<decimal>> FilterByAgeAndSexAndGetLatestAsync(
@@ -304,12 +303,11 @@ public class FHIRQueryService : IFHIRQueryService
         if (resource.TryGetProperty("effectiveDateTime", out var effective))
             effectiveDate = DateTimeOffset.Parse(effective.GetString()!);
 
-        decimal? value = null;
-        if (resource.TryGetProperty("valueQuantity", out var valueQuantity) &&
-            valueQuantity.TryGetProperty("value", out var valueElement))
-            value = valueElement.GetDecimal();
+        if (!resource.TryGetProperty("valueQuantity", out var valueQuantity) ||
+            !valueQuantity.TryGetProperty("value", out var valueElement))
+            return null;
 
-        return new FhirObservation(patientRef, effectiveDate, value);
+        return new FhirObservation(patientRef, effectiveDate, valueElement.GetDecimal());
     }
 
     /// <summary>
@@ -329,24 +327,23 @@ public class FHIRQueryService : IFHIRQueryService
         if (resource.TryGetProperty("effectiveDateTime", out var effective))
             effectiveDate = DateTimeOffset.Parse(effective.GetString()!);
 
-        decimal? value = null;
-        if (resource.TryGetProperty("component", out var components))
-        {
-            var component = components.EnumerateArray()
-                .FirstOrDefault(c =>
-                    c.TryGetProperty("code", out var code) &&
-                    code.TryGetProperty("coding", out var coding) &&
-                    coding.EnumerateArray().Any(x =>
-                        x.TryGetProperty("code", out var codeVal) &&
-                        codeVal.GetString() == componentCode));
+        if (!resource.TryGetProperty("component", out var components))
+            return null;
 
-            if (component.ValueKind != JsonValueKind.Undefined &&
-                component.TryGetProperty("valueQuantity", out var vq) &&
-                vq.TryGetProperty("value", out var vqVal))
-                value = vqVal.GetDecimal();
-        }
+        var component = components.EnumerateArray()
+            .FirstOrDefault(c =>
+                c.TryGetProperty("code", out var code) &&
+                code.TryGetProperty("coding", out var coding) &&
+                coding.EnumerateArray().Any(x =>
+                    x.TryGetProperty("code", out var codeVal) &&
+                    codeVal.GetString() == componentCode));
 
-        return new FhirObservation(patientRef, effectiveDate, value);
+        if (component.ValueKind == JsonValueKind.Undefined ||
+            !component.TryGetProperty("valueQuantity", out var vq) ||
+            !vq.TryGetProperty("value", out var vqVal))
+            return null;
+
+        return new FhirObservation(patientRef, effectiveDate, vqVal.GetDecimal());
     }
 
     #endregion

@@ -11,8 +11,8 @@ export const SEX_LABELS: Record<PatientSex, string> = {
 };
 
 export enum ClinicalMeasurementType {
-  BloodPressure = 1,
-  HbA1c = 2,
+  BloodPressure = 'BloodPressure',
+  HbA1c = 'HbA1c',
 }
 
 
