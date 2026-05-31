@@ -60,9 +60,7 @@ public class StatisticsService : IStatisticsService
         }
     }
 
-    private async Task<EncryptedAverageResult?> TryGetFromProxyAsync(
-        string url,
-        Func<IHospitalProxyClient, Task<EncryptedAverageResult?>> call)
+    private async Task<EncryptedAverageResult?> TryGetFromProxyAsync(string url, Func<IHospitalProxyClient, Task<EncryptedAverageResult?>> call)
     {
         try
         {

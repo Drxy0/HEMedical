@@ -70,7 +70,6 @@ public HospitalClient(HttpClient httpClient)
                 loincCode = measurementType.GetLoincCode();
                 parser = ParseHbA1cObservation;
                 return true;
-            case ClinicalMeasurementType.BloodPressure:
             case ClinicalMeasurementType.SystolicBloodPressure:
             case ClinicalMeasurementType.DiastolicBloodPressure:
                 loincCode = measurementType.GetLoincCode();
