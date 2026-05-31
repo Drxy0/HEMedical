@@ -1,6 +1,7 @@
 using HEMedical.Hospital.DTOs;
 using HEMedical.Hospital.Models.ClinicalMeasurementModels;
 using HEMedical.Hospital.Services.Interfaces;
+using HEMedical.Shared;
 using HEMedical.Shared.Common;
 using HEMedical.Shared.Models;
 
@@ -8,11 +9,6 @@ namespace HEMedical.Hospital.Services;
 
 public class ObservationService : IObservationService
 {
-    private const string HbA1cCode = "4548-4";
-    private const string BloodPressurePanelCode = "85354-9";
-    private const string BloodPressureModelCode = "55284-4";
-    private const string SystolicCode = "8480-6";
-    private const string DiastolicCode = "8462-4";
 
     private readonly HospitalDbContext _context;
 
@@ -36,10 +32,13 @@ public class ObservationService : IObservationService
 
         DateTimeOffset recordedAt = input.EffectiveDateTime ?? DateTimeOffset.UtcNow;
 
+        string hbA1cCode = ClinicalMeasurementType.HbA1c.GetLoincCode();
+        string bpPanelCode = ClinicalMeasurementType.BloodPressure.GetLoincCode();
+
         return loincCode switch
         {
-            HbA1cCode => await CreateHbA1cAsync(patientId, recordedAt, input),
-            BloodPressurePanelCode or BloodPressureModelCode => await CreateBloodPressureAsync(patientId, recordedAt, input),
+            _ when loincCode == hbA1cCode => await CreateHbA1cAsync(patientId, recordedAt, input),
+            _ when loincCode == bpPanelCode || loincCode == FhirConstants.BloodPressureModelLoincCode => await CreateBloodPressureAsync(patientId, recordedAt, input),
             _ => Result<ObservationResult>.Fail($"Unsupported LOINC code: {loincCode}")
         };
     }
@@ -49,7 +48,14 @@ public class ObservationService : IObservationService
         if (input.ValueQuantity is null)
             return Result<ObservationResult>.Fail("Missing valueQuantity for HbA1c");
 
-        var hba1c = new Hb1Ac { PatientId = patientId, RecordedAt = recordedAt, Value = input.ValueQuantity.Value };
+        var hba1c = new Hb1Ac
+        {
+            PatientId = patientId,
+            RecordedAt = recordedAt,
+            Value = input.ValueQuantity.Value,
+            InterpretationCode = ClinicalMeasurementType.HbA1c.GetLoincCode(),
+            InterpretationSystem = FhirConstants.LoincSystem
+        };
         _context.Hb1Ac.Add(hba1c);
         await _context.SaveChangesAsync();
 
@@ -58,13 +64,24 @@ public class ObservationService : IObservationService
 
     private async Task<Result<ObservationResult>> CreateBloodPressureAsync(int patientId, DateTimeOffset recordedAt, FhirObservationInput input)
     {
-        decimal? systolic = GetComponentValue(input, SystolicCode);
-        decimal? diastolic = GetComponentValue(input, DiastolicCode);
+        string systolicCode = ClinicalMeasurementType.SystolicBloodPressure.GetComponentLoincCode();
+        string diastolicCode = ClinicalMeasurementType.DiastolicBloodPressure.GetComponentLoincCode();
+
+        decimal? systolic = GetComponentValue(input, systolicCode);
+        decimal? diastolic = GetComponentValue(input, diastolicCode);
 
         if (systolic is null || diastolic is null)
-            return Result<ObservationResult>.Fail($"BloodPressure requires components {SystolicCode} (systolic) and {DiastolicCode} (diastolic)");
+            return Result<ObservationResult>.Fail($"BloodPressure requires components {systolicCode} (systolic) and {diastolicCode} (diastolic)");
 
-        var bp = new BloodPressure { PatientId = patientId, RecordedAt = recordedAt, Systolic = systolic.Value, Diastolic = diastolic.Value };
+        var bp = new BloodPressure
+        {
+            PatientId = patientId,
+            RecordedAt = recordedAt,
+            Systolic = systolic.Value,
+            Diastolic = diastolic.Value,
+            InterpretationCode = ClinicalMeasurementType.BloodPressure.GetLoincCode(),
+            InterpretationSystem = FhirConstants.LoincSystem
+        };
         _context.BloodPressure.Add(bp);
         await _context.SaveChangesAsync();
 

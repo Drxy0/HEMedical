@@ -12,19 +12,14 @@ internal class DirectFhirService : IDirectFhirService
     private readonly ILogger<DirectFhirService> _logger;
     private readonly string? _baseUrl;
 
-    private const string HbA1cCode = "4548-4";
-    private const string BloodPressureCode = "85354-9";
-    private const string SystolicCode = "8480-6";
-    private const string DiastolicCode = "8462-4";
-
-    public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logger)
+public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
         _baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/');
 
         if (_baseUrl is null)
-            _logger.LogError("FhirVerificationUrl is not configured in appsettings.json — DirectFhirService will not function.");
+            _logger.LogError("HttpClient BaseAddress is not configured — DirectFhirService will not function.");
     }
 
     #region Public API
@@ -32,7 +27,7 @@ internal class DirectFhirService : IDirectFhirService
     public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
         if (_baseUrl is null)
-            return Result<IReadOnlyList<QueryResult>>.Fail("FhirVerificationUrl is not configured.");
+            return Result<IReadOnlyList<QueryResult>>.Fail("HttpClient BaseAddress is not configured.");
 
         try
         {
@@ -50,7 +45,7 @@ internal class DirectFhirService : IDirectFhirService
     public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
     {
         if (_baseUrl is null)
-            return Result<IReadOnlyList<QueryResult>>.Fail("FhirVerificationUrl is not configured.");
+            return Result<IReadOnlyList<QueryResult>>.Fail("HttpClient BaseAddress is not configured.");
 
         try
         {
@@ -74,9 +69,10 @@ internal class DirectFhirService : IDirectFhirService
         int? startAge = null, int? endAge = null,
         PatientSex? sex = null)
     {
+        string bpCode = ClinicalMeasurementType.BloodPressure.GetLoincCode();
         var (systolicTask, diastolicTask) = (
-            GetAverageAsync(BloodPressureCode, ParseSystolic, startDate, endDate, startAge, endAge, sex),
-            GetAverageAsync(BloodPressureCode, ParseDiastolic, startDate, endDate, startAge, endAge, sex)
+            GetAverageAsync(bpCode, ParseSystolic, startDate, endDate, startAge, endAge, sex),
+            GetAverageAsync(bpCode, ParseDiastolic, startDate, endDate, startAge, endAge, sex)
         );
         await Task.WhenAll(systolicTask, diastolicTask);
 
@@ -102,9 +98,12 @@ internal class DirectFhirService : IDirectFhirService
     {
         var (code, parser) = measurementType switch
         {
-            ClinicalMeasurementType.HbA1c => (HbA1cCode, (Func<JsonNode, FhirObservation?>)ParseHbA1c),
-            _ => throw new ArgumentOutOfRangeException(nameof(measurementType), $"Unsupported measurement type: {measurementType}")
+            ClinicalMeasurementType.HbA1c => (measurementType.GetLoincCode(), (Func<JsonNode, FhirObservation?>)ParseHbA1c),
+            _ => (string.Empty, (Func<JsonNode, FhirObservation?>?)null)
         };
+
+        if (parser is null)
+            return Result<IReadOnlyList<QueryResult>>.Fail($"Unsupported measurement type: {measurementType}");
 
         Result<double> valueResult = await GetAverageAsync(code, parser, startDate, endDate, startAge, endAge, sex);
         return valueResult.IsSuccess
@@ -277,7 +276,7 @@ internal class DirectFhirService : IDirectFhirService
             ?.AsArray()
             .FirstOrDefault(c => c?["code"]?["coding"]
                 ?.AsArray()
-                .Any(x => x?["code"]?.GetValue<string>() == SystolicCode) == true)
+                .Any(x => x?["code"]?.GetValue<string>() == ClinicalMeasurementType.SystolicBloodPressure.GetComponentLoincCode()) == true)
             ?["valueQuantity"]?["value"]
             ?.GetValue<decimal>();
 
@@ -298,7 +297,7 @@ internal class DirectFhirService : IDirectFhirService
             ?.AsArray()
             .FirstOrDefault(c => c?["code"]?["coding"]
                 ?.AsArray()
-                .Any(x => x?["code"]?.GetValue<string>() == DiastolicCode) == true)
+                .Any(x => x?["code"]?.GetValue<string>() == ClinicalMeasurementType.DiastolicBloodPressure.GetComponentLoincCode()) == true)
             ?["valueQuantity"]?["value"]
             ?.GetValue<decimal>();
 

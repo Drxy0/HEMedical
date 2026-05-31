@@ -19,9 +19,9 @@ public class PatientQueryService : IPatientQueryService
     {
         return measurementType switch
         {
-            ClinicalMeasurementType.HbA1c => 
+            ClinicalMeasurementType.HbA1c =>
                 Result<List<ObservationResult>>.Ok(await GetHbA1cByDateRangeAsync(startDate, endDate)),
-            ClinicalMeasurementType.BloodPressure => 
+            ClinicalMeasurementType.BloodPressure =>
                 Result<List<ObservationResult>>.Ok(await GetBloodPressureByDateRangeAsync(startDate, endDate)),
             _ => Result<List<ObservationResult>>.Fail($"Unsupported measurement type: {measurementType}")
         };
@@ -42,10 +42,16 @@ public class PatientQueryService : IPatientQueryService
         var query = _context.Hb1Ac.AsQueryable();
 
         if (startDate.HasValue)
-            query = query.Where(x => DateOnly.FromDateTime(x.RecordedAt.DateTime) >= startDate.Value);
+        {
+            DateTimeOffset start = new(startDate.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            query = query.Where(x => x.RecordedAt >= start);
+        }
 
         if (endDate.HasValue)
-            query = query.Where(x => DateOnly.FromDateTime(x.RecordedAt.DateTime) <= endDate.Value);
+        {
+            DateTimeOffset end = new(endDate.Value.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
+            query = query.Where(x => x.RecordedAt <= end);
+        }
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
@@ -73,10 +79,16 @@ public class PatientQueryService : IPatientQueryService
         var query = _context.BloodPressure.AsQueryable();
 
         if (startDate.HasValue)
-            query = query.Where(x => DateOnly.FromDateTime(x.RecordedAt.DateTime) >= startDate.Value);
+        {
+            DateTimeOffset start = new(startDate.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            query = query.Where(x => x.RecordedAt >= start);
+        }
 
         if (endDate.HasValue)
-            query = query.Where(x => DateOnly.FromDateTime(x.RecordedAt.DateTime) <= endDate.Value);
+        {
+            DateTimeOffset end = new(endDate.Value.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
+            query = query.Where(x => x.RecordedAt <= end);
+        }
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))
@@ -87,10 +99,11 @@ public class PatientQueryService : IPatientQueryService
     private async Task<List<ObservationResult>> GetBloodPressureByAgeRangeAsync(int startAge, int endAge)
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+        DateOnly minBirthDate = today.AddYears(-endAge - 1).AddDays(1);
+        DateOnly maxBirthDate = today.AddYears(-startAge);
 
         var query = _context.BloodPressure
-            .Where(x => today.Year - x.Patient.BirthDate.Year >= startAge &&
-                        today.Year - x.Patient.BirthDate.Year <= endAge);
+            .Where(x => x.Patient.BirthDate >= minBirthDate && x.Patient.BirthDate <= maxBirthDate);
 
         return await query
             .Where(x => !query.Any(y => y.PatientId == x.PatientId && y.RecordedAt > x.RecordedAt))

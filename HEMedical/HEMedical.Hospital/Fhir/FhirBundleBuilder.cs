@@ -1,5 +1,5 @@
 using HEMedical.Hospital.DTOs;
-using HEMedical.Hospital.Models.ClinicalMeasurementModels;
+using HEMedical.Shared;
 using HEMedical.Shared.Models;
 
 namespace HEMedical.Hospital.Fhir;
@@ -14,18 +14,10 @@ public interface IFhirBundleBuilder
 
 public class FhirBundleBuilder : IFhirBundleBuilder
 {
-    private const string LoincSystem = "http://loinc.org";
-    private const string UnitsSystem = "http://unitsofmeasure.org";
-
-    private const string HbA1cCode = "4548-4";
-    private const string BloodPressurePanelCode = "85354-9";
-    private const string SystolicCode = "8480-6";
-    private const string DiastolicCode = "8462-4";
-
     public ClinicalMeasurementType? ResolveType(string loincCode) => loincCode switch
     {
-        HbA1cCode => ClinicalMeasurementType.HbA1c,
-        BloodPressurePanelCode => ClinicalMeasurementType.BloodPressure,
+        _ when loincCode == ClinicalMeasurementType.HbA1c.GetLoincCode() => ClinicalMeasurementType.HbA1c,
+        _ when loincCode == ClinicalMeasurementType.BloodPressure.GetLoincCode() => ClinicalMeasurementType.BloodPressure,
         _ => null
     };
 
@@ -52,29 +44,29 @@ public class FhirBundleBuilder : IFhirBundleBuilder
         {
             resourceType = "Observation",
             status = "final",
-            code = new { coding = new[] { new { system = LoincSystem, code = HbA1cCode, display = "Hemoglobin A1c/Hemoglobin.total in Blood" } } },
+            code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = type.GetLoincCode(), display = "Hemoglobin A1c/Hemoglobin.total in Blood" } } },
             subject = new { reference = $"Patient/{o.PatientId}" },
             effectiveDateTime = o.RecordedAt.ToString("O"),
-            valueQuantity = new { value = o.Value, unit = Hb1Ac.Unit, system = UnitsSystem, code = Hb1Ac.Unit }
+            valueQuantity = new { value = o.Value, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
         },
         ClinicalMeasurementType.BloodPressure => new
         {
             resourceType = "Observation",
             status = "final",
-            code = new { coding = new[] { new { system = LoincSystem, code = BloodPressurePanelCode, display = "Blood pressure panel with all children optional" } } },
+            code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = type.GetLoincCode(), display = "Blood pressure panel with all children optional" } } },
             subject = new { reference = $"Patient/{o.PatientId}" },
             effectiveDateTime = o.RecordedAt.ToString("O"),
             component = new object[]
             {
                 new
                 {
-                    code = new { coding = new[] { new { system = LoincSystem, code = SystolicCode, display = "Systolic blood pressure" } } },
-                    valueQuantity = new { value = o.Value, unit = BloodPressure.Unit, system = UnitsSystem, code = BloodPressure.Unit }
+                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementType.SystolicBloodPressure.GetComponentLoincCode(), display = "Systolic blood pressure" } } },
+                    valueQuantity = new { value = o.Value, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
                 },
                 new
                 {
-                    code = new { coding = new[] { new { system = LoincSystem, code = DiastolicCode, display = "Diastolic blood pressure" } } },
-                    valueQuantity = new { value = o.Value2 ?? 0m, unit = BloodPressure.Unit, system = UnitsSystem, code = BloodPressure.Unit }
+                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementType.DiastolicBloodPressure.GetComponentLoincCode(), display = "Diastolic blood pressure" } } },
+                    valueQuantity = new { value = o.Value2 ?? 0m, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
                 }
             }
         },

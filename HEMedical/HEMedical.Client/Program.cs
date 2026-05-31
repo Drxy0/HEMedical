@@ -16,8 +16,13 @@ builder.Services.AddControllers()
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<IHEKeyService, HEKeyService>();
+bool useHospital = builder.Configuration.GetValue<bool>("UseHospitalBackend");
+string configKey = useHospital ? "HospitalBaseUrl" : "FhirVerificationUrl";
+string fhirBaseUrl = builder.Configuration[configKey]
+    ?? throw new InvalidOperationException($"{configKey} is not configured in appsettings.json");
+
 builder.Services.AddHttpClient<IDirectFhirService, DirectFhirService>(client =>
-    client.BaseAddress = new Uri(builder.Configuration["FhirVerificationUrl"] ?? ""));
+    client.BaseAddress = new Uri(fhirBaseUrl));
 builder.Services.AddScoped<IStatisticsService, ClientStatisticsService>();
 builder.Services.AddHttpClient<IHEServerClient, HEServerClient>(client =>
 {
