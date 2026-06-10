@@ -81,7 +81,10 @@ docker compose down -v
 
 ## Example endpoints testable with Postman
 
-- Note: Age range is inclusive
+### Notes: 
+- Age range is inclusive
+- For local deployment HEMedical.Client URL is: https://localhost:5000/api
+- For Docker deployment HEMedical.Client URL is: http://localhost:5000/api
 
 ```
 http://localhost:5003/api/statistics/by-date?measurementType=HbA1c&startDate=2020-01-01&endDate=2024-01-01
