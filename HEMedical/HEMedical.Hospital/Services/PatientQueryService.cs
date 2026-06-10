@@ -59,6 +59,7 @@ public class PatientQueryService : IPatientQueryService
             .ToListAsync();
     }
 
+    // NOTE: Age range is inclusive
     private async Task<List<ObservationResult>> GetHbA1cByAgeRangeAsync(int startAge, int endAge)
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Today);
