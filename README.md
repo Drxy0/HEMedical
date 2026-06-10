@@ -1,5 +1,3 @@
-# HEMedical
-
 ## Running Backend Locally
 
 ### Prerequisites
@@ -36,6 +34,9 @@ Run the following projects:
 | Hospital        | http://localhost:5002  |
 | Client          | http://localhost:5003  |
 
+This can be done in two ways using Visual Studio:
+1) Right-click on project name -> Debug -> Start new instance/Star without debugging
+2) Right-click on solution name -> Configure startup projects -> check Multiple startup projects -> set all except HEMedical.Shared action to 'Start' or 'Start without debugging' 
 ---
 
 ## Running Backend with Docker
@@ -52,7 +53,7 @@ From the `HEMedical/` folder (where `docker-compose.yml` is located):
 docker compose up --build
 ```
 
-This starts all services and a SQL Server instance automatically.
+Started services:
 
 | Service         | URL                    |
 |-----------------|------------------------|
@@ -78,11 +79,12 @@ docker compose down -v
 
 - The SQL Server SA password is `HEMedical_SA_Password1`.
 
-# Example endpoints testable with Postman
+## Example endpoints testable with Postman
+
+- Note: Age range is inclusive
 
 ```
 http://localhost:5003/api/statistics/by-date?measurementType=HbA1c&startDate=2020-01-01&endDate=2024-01-01
 http://localhost:5003/api/statistics/by-age?measurementType=BloodPressure&startAge=20&endAge=40
 ```
 
-- Note: Age range is inclusive
