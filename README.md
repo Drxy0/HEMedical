@@ -80,14 +80,14 @@ docker compose down -v
 - The SQL Server SA password is `HEMedical_SA_Password1`.
 
 ## Example endpoints testable with Postman
-
+```
+http://localhost:5000/api/statistics/by-date?measurementType=HbA1c&startDate=2020-01-01&endDate=2024-01-01
+http://localhost:5000/api/statistics/by-age?measurementType=BloodPressure&startAge=20&endAge=40
+```
 ### Notes: 
 - Age range is inclusive
 - For local deployment HEMedical.Client URL is: https://localhost:5000/api
 - For Docker deployment HEMedical.Client URL is: http://localhost:5000/api
 
-```
-http://localhost:5003/api/statistics/by-date?measurementType=HbA1c&startDate=2020-01-01&endDate=2024-01-01
-http://localhost:5003/api/statistics/by-age?measurementType=BloodPressure&startAge=20&endAge=40
-```
+
 
