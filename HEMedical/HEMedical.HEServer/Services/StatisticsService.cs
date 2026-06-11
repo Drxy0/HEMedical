@@ -49,7 +49,7 @@ public class StatisticsService : IStatisticsService
         try
         {
             var tasks = _settings.Urls.Select(url =>
-                TryGetFromProxyAsync(url, client => client.GetByAgeRangeAsync(measurementType, startAge, endAge, sex)));
+                FetchFromProxyAsync(url, client => client.GetByAgeRangeAsync(measurementType, startAge, endAge, sex)));
 
             EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
             return AggregateResults(responses);
@@ -60,7 +60,7 @@ public class StatisticsService : IStatisticsService
         }
     }
 
-    private async Task<EncryptedAverageResult?> TryGetFromProxyAsync(string url, Func<IHospitalProxyClient, Task<EncryptedAverageResult?>> call)
+    private async Task<EncryptedAverageResult?> FetchFromProxyAsync(string url, Func<IHospitalProxyClient, Task<EncryptedAverageResult?>> call)
     {
         try
         {
