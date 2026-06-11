@@ -19,6 +19,14 @@ builder.Services.AddScoped<IPatientService, PatientService>();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<HospitalDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await db.Database.MigrateAsync();
+    await DbSeeder.SeedAsync(db, logger);
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
