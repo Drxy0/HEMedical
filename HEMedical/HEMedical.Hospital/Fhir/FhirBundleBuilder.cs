@@ -1,6 +1,6 @@
 using HEMedical.Hospital.DTOs;
+using HEMedical.Hospital.Models;
 using HEMedical.Shared;
-using HEMedical.Shared.Models;
 
 namespace HEMedical.Hospital.Fhir;
 
@@ -8,6 +8,7 @@ public interface IFhirBundleBuilder
 {
     ClinicalMeasurementType? ResolveType(string loincCode);
     object BuildBundle(ClinicalMeasurementType type, List<ObservationResult> observations);
+    object BuildEmptyBundle();
     object BuildSingleResource(ClinicalMeasurementType type, ObservationResult o);
     DateOnly? ParseDate(string[]? dates, string prefix);
 }
@@ -17,7 +18,10 @@ public class FhirBundleBuilder : IFhirBundleBuilder
     public ClinicalMeasurementType? ResolveType(string loincCode) => loincCode switch
     {
         _ when loincCode == ClinicalMeasurementType.HbA1c.GetLoincCode() => ClinicalMeasurementType.HbA1c,
+        // Both the panel code (85354-9) and the direct BP code (55284-4) resolve to BloodPressure,
+        // matching what ObservationService.CreateAsync accepts.
         _ when loincCode == ClinicalMeasurementType.BloodPressure.GetLoincCode() => ClinicalMeasurementType.BloodPressure,
+        _ when loincCode == FhirConstants.BloodPressureModelLoincCode => ClinicalMeasurementType.BloodPressure,
         _ => null
     };
 
@@ -36,6 +40,18 @@ public class FhirBundleBuilder : IFhirBundleBuilder
             fullUrl = "Observation/_search",
             resource = BuildSingleResource(type, o)
         })
+    };
+
+    /// <summary>
+    /// Empty searchset Bundle, returned for LOINC codes this hospital has no data for.
+    /// FHIR servers respond to searches for unknown codes with an empty result set, not an error.
+    /// </summary>
+    public object BuildEmptyBundle() => new
+    {
+        resourceType = "Bundle",
+        type = "searchset",
+        total = 0,
+        entry = Array.Empty<object>()
     };
 
     public object BuildSingleResource(ClinicalMeasurementType type, ObservationResult o) => type switch
@@ -60,12 +76,12 @@ public class FhirBundleBuilder : IFhirBundleBuilder
             {
                 new
                 {
-                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementType.SystolicBloodPressure.GetComponentLoincCode(), display = "Systolic blood pressure" } } },
+                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementTypeExtensions.SystolicComponentLoincCode, display = "Systolic blood pressure" } } },
                     valueQuantity = new { value = o.Value, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
                 },
                 new
                 {
-                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementType.DiastolicBloodPressure.GetComponentLoincCode(), display = "Diastolic blood pressure" } } },
+                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementTypeExtensions.DiastolicComponentLoincCode, display = "Diastolic blood pressure" } } },
                     valueQuantity = new { value = o.Value2 ?? 0m, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
                 }
             }

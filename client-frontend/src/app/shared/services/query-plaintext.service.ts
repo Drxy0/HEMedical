@@ -1,35 +1,40 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ClinicalMeasurementType, PatientSex, QueryResult } from '../models/clinical-measurement.model';
+import { PatientSex, QueryResult } from '../models/clinical-measurement.model';
 
 @Injectable({ providedIn: 'root' })
 export class QueryPlaintextService {
   private readonly http = inject(HttpClient);
 
-  getAverageByDateRange(
-    measurementType: ClinicalMeasurementType,
+  getStatisticsByDateRange(
+    loincCode: string,
+    componentLoincCode?: string,
     startDate?: string,
     endDate?: string,
     sex?: PatientSex,
-  ): Observable<QueryResult[]> {
-    let params = new HttpParams().set('measurementType', measurementType);
+  ): Observable<QueryResult> {
+    let params = new HttpParams().set('loincCode', loincCode);
+    if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
     if (startDate) params = params.set('startDate', startDate);
     if (endDate) params = params.set('endDate', endDate);
     if (sex) params = params.set('sex', sex);
-    return this.http.get<QueryResult[]>('/api/verification/by-date', { params });
+    return this.http.get<QueryResult>('/api/verification/by-date', { params });
   }
 
-  getAverageByAgeRange(
-    measurementType: ClinicalMeasurementType,
-    startAge?: number,
-    endAge?: number,
+  getStatisticsByAgeRange(
+    loincCode: string,
+    componentLoincCode: string | undefined,
+    startAge: number,
+    endAge: number,
     sex?: PatientSex,
-  ): Observable<QueryResult[]> {
-    let params = new HttpParams().set('measurementType', measurementType);
-    if (startAge != null) params = params.set('startAge', startAge);
-    if (endAge != null) params = params.set('endAge', endAge);
+  ): Observable<QueryResult> {
+    let params = new HttpParams()
+      .set('loincCode', loincCode)
+      .set('startAge', startAge)
+      .set('endAge', endAge);
+    if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
     if (sex) params = params.set('sex', sex);
-    return this.http.get<QueryResult[]>('/api/verification/by-age', { params });
+    return this.http.get<QueryResult>('/api/verification/by-age', { params });
   }
 }

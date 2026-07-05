@@ -1,7 +1,7 @@
 using HEMedical.Hospital.DTOs;
+using HEMedical.Hospital.Models;
 using HEMedical.Hospital.Services.Interfaces;
 using HEMedical.Shared.Common;
-using HEMedical.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace HEMedical.Hospital.Services;

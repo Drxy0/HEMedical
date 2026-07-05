@@ -1,6 +1,7 @@
-﻿using HEMedical.HEServer.Services.Interfaces;
+using HEMedical.HEServer.Services.Interfaces;
 using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.HEServer.Controllers;
 
@@ -9,30 +10,16 @@ namespace HEMedical.HEServer.Controllers;
 public class QueryController(IStatisticsService _statService) : ControllerBase
 {
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        var result = await _statService.GetAverageByDateRangeAsync(measurementType, startDate, endDate, sex);
+        var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetAverageByAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex)
     {
-        var result = await _statService.GetAverageByAgeRangeAsync(measurementType, startAge, endAge, sex);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
-    }
-
-    [HttpGet("by-loinc")]
-    public async Task<IActionResult> GetAverageByLoincCode(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
-    {
-        var result = await _statService.GetAverageByLoincCodeAsync(loincCode, startDate, endDate, sex);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
-    }
-
-    [HttpGet("by-loinc-age")]
-    public async Task<IActionResult> GetAverageByLoincCodeAndAgeRange(string loincCode, int startAge, int endAge, PatientSex? sex)
-    {
-        var result = await _statService.GetAverageByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex);
+        var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 }

@@ -5,16 +5,16 @@
 
       <form [formGroup]="form" novalidate>
         <div class="field">
-          <label for="measurementType">
+          <label for="measurementSelection">
             Measurement Type <span class="required" aria-hidden="true">*</span>
           </label>
           <select
-            id="measurementType"
-            formControlName="measurementType"
+            id="measurementSelection"
+            formControlName="measurementSelection"
             required
             aria-required="true"
           >
-            @for (opt of measurementTypeOptions; track opt.value) {
+            @for (opt of measurementOptions; track opt.value) {
               <option [value]="opt.value">{{ opt.label }}</option>
             }
           </select>
@@ -36,7 +36,7 @@
                   ? true
                   : null
               "
-              aria-describedby="loincCode-error loincCode-hint"
+              aria-describedby="loincCode-error"
             />
             @if (submitted() && form.hasError('loincRequired')) {
               <span id="loincCode-error" class="field-error" role="alert"
@@ -44,6 +44,29 @@
               >
             } @else if (submitted() && form.hasError('loincInvalid')) {
               <span id="loincCode-error" class="field-error" role="alert">Invalid LOINC Code</span>
+            }
+          </div>
+          <div class="field">
+            <label for="componentLoincCode">Component LOINC Code</label>
+            <input
+              id="componentLoincCode"
+              type="text"
+              formControlName="componentLoincCode"
+              placeholder="e.g. 8480-6"
+              autocomplete="off"
+              [attr.aria-invalid]="
+                submitted() && form.hasError('componentLoincInvalid') ? true : null
+              "
+              aria-describedby="componentLoincCode-error componentLoincCode-hint"
+            />
+            <span id="componentLoincCode-hint" class="field-hint">
+              Optional — only for values recorded inside panel observations, e.g. systolic (8480-6)
+              inside the blood pressure panel (85354-9).
+            </span>
+            @if (submitted() && form.hasError('componentLoincInvalid')) {
+              <span id="componentLoincCode-error" class="field-error" role="alert"
+                >Invalid component LOINC code</span
+              >
             }
           </div>
         }
@@ -203,8 +226,7 @@
           <button
             type="button"
             (click)="onQueryPlaintext()"
-            [disabled]="isLoadingHE() || isLoadingPlaintext() || isCustomLoinc()"
-            [attr.aria-describedby]="isCustomLoinc() ? 'plaintext-unavailable' : null"
+            [disabled]="isLoadingHE() || isLoadingPlaintext()"
           >
             @if (isLoadingPlaintext()) {
               <span aria-hidden="true">Querying…</span>
@@ -214,11 +236,6 @@
             }
           </button>
         </div>
-        @if (isCustomLoinc()) {
-          <p id="plaintext-unavailable" class="field-hint">
-            Plaintext verification is not available for custom LOINC codes.
-          </p>
-        }
       </form>
     </div>
 

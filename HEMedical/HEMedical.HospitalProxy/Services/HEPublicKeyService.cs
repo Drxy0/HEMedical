@@ -27,7 +27,7 @@ public class HEPublicKeyService : IHEPublicKeyService
         }
         catch (Exception ex)
         {
-            throw new Exception(ex.Message);
+            throw new InvalidOperationException($"Failed to load HE public key from '{PublicKeyPath}'. Ensure the Client has generated keys and the file was copied to the proxy.", ex);
         }
     }
 

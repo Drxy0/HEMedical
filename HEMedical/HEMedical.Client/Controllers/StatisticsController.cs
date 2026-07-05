@@ -1,7 +1,7 @@
-﻿using HEMedical.Client.DTOs;
 using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.Client.Controllers;
 
@@ -9,31 +9,29 @@ namespace HEMedical.Client.Controllers;
 [ApiController]
 public class StatisticsController(IStatisticsService _statService) : ControllerBase
 {
+    /// <summary>
+    /// Fetches the average and standard deviation for a LOINC code across all hospitals,
+    /// counting each patient's latest observation within the given date range, optionally filtered by sex.
+    /// Pass a component code for values recorded inside panel observations (e.g. systolic = 85354-9 + 8480-6);
+    /// both codes are verified against the online LOINC terminology service before querying.
+    /// </summary>
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetAverage_ByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public async Task<IActionResult> GetStatistics_ByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        var result = await _statService.GetAverageByDateRangeAsync(measurementType, startDate, endDate, sex);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+        var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
+        return this.ToActionResult(result);
     }
 
+    /// <summary>
+    /// Fetches the average and standard deviation for a LOINC code across all hospitals,
+    /// counting only patients whose age is within the given range (inclusive), optionally filtered by sex.
+    /// Pass a component code for values recorded inside panel observations;
+    /// both codes are verified against the online LOINC terminology service before querying.
+    /// </summary>
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetAverage_ByPatientAgeRange([FromQuery] AgeRangeRequest request)
+    public async Task<IActionResult> GetStatistics_ByPatientAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex)
     {
-        var result = await _statService.GetAverageByPatientAgeRange(request.MeasurementType, request.StartAge, request.EndAge, request.Sex);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
-    }
-
-    [HttpGet("by-loinc")]
-    public async Task<IActionResult> GetAverage_ByLoincCode(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
-    {
-        var result = await _statService.GetAverageByLoincCodeAsync(loincCode, startDate, endDate, sex);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
-    }
-
-    [HttpGet("by-loinc-age")]
-    public async Task<IActionResult> GetAverage_ByLoincCodeAndAgeRange(string loincCode, int startAge, int endAge, PatientSex? sex)
-    {
-        var result = await _statService.GetAverageByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+        var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
+        return this.ToActionResult(result);
     }
 }

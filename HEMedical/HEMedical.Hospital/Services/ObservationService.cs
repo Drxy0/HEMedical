@@ -1,9 +1,9 @@
 using HEMedical.Hospital.DTOs;
+using HEMedical.Hospital.Models;
 using HEMedical.Hospital.Models.ClinicalMeasurementModels;
 using HEMedical.Hospital.Services.Interfaces;
 using HEMedical.Shared;
 using HEMedical.Shared.Common;
-using HEMedical.Shared.Models;
 
 namespace HEMedical.Hospital.Services;
 
@@ -64,8 +64,8 @@ public class ObservationService : IObservationService
 
     private async Task<Result<ObservationResult>> CreateBloodPressureAsync(int patientId, DateTimeOffset recordedAt, FhirObservationInput input)
     {
-        string systolicCode = ClinicalMeasurementType.SystolicBloodPressure.GetComponentLoincCode();
-        string diastolicCode = ClinicalMeasurementType.DiastolicBloodPressure.GetComponentLoincCode();
+        string systolicCode = ClinicalMeasurementTypeExtensions.SystolicComponentLoincCode;
+        string diastolicCode = ClinicalMeasurementTypeExtensions.DiastolicComponentLoincCode;
 
         decimal? systolic = GetComponentValue(input, systolicCode);
         decimal? diastolic = GetComponentValue(input, diastolicCode);

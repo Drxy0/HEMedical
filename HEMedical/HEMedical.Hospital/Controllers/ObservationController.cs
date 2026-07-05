@@ -28,8 +28,9 @@ public class ObservationController : ControllerBase
     {
         var type = _fhirBuilder.ResolveType(code);
 
+        // No data for this LOINC code — return an empty searchset per FHIR search semantics.
         if (type is null)
-            return BadRequest($"Unsupported LOINC code: {code}");
+            return Ok(_fhirBuilder.BuildEmptyBundle());
 
         var result = await _queryService.GetValuesByDateRangeAsync(
             type.Value,

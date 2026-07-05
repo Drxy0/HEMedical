@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { BaseChartDirective } from 'ng2-charts';
+import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartConfiguration, ChartData, Plugin } from 'chart.js';
 import { QueryResult } from '../../shared/models/clinical-measurement.model';
 
@@ -64,6 +64,8 @@ const errorBarsPlugin: Plugin<'bar'> = {
 @Component({
   selector: 'app-statistics-chart',
   imports: [BaseChartDirective],
+  // Registered here rather than in app.config so Chart.js stays in this lazy chunk.
+  providers: [provideCharts(withDefaultRegisterables())],
   template: `
     <div class="chart-wrapper">
       <canvas

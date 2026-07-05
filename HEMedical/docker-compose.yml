@@ -48,10 +48,11 @@ services:
       - "5000:8080"
     environment:
       - HEServerBaseUrl=http://heserver:8080
-      - HospitalBaseUrl=http://hospitalproxy:8080
+      # Plaintext verification path queries the hospital's FHIR endpoint directly.
+      - HospitalBaseUrl=http://hospital:8080
     volumes:
       - ./HEMedical.Client/public.key:/app/public.key:ro
       - ./HEMedical.Client/secret.key:/app/secret.key:ro
     depends_on:
       - heserver
-      - hospitalproxy
+      - hospital

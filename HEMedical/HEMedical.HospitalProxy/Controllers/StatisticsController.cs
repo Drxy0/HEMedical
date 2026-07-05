@@ -1,8 +1,9 @@
-﻿using HEMedical.HospitalProxy.Services.Interfaces;
+using HEMedical.HospitalProxy.Services.Interfaces;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
 
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.HospitalProxy.Controllers;
 
@@ -20,34 +21,18 @@ public class StatisticsController : ControllerBase
     }
 
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetAverageByDateRange(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        List<decimal> values = await _fhirQueryService.GetValuesByDateRangeAsync(measurementType, startDate, endDate, sex);
-        EncryptedAverageResult result = _encryptionService.Encrypt(values);
+        List<decimal> values = await _fhirQueryService.GetValuesByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
+        EncryptedStatisticsResult result = _encryptionService.Encrypt(values);
         return Ok(result);
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetAverageByAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex)
     {
-        List<decimal> values = await _fhirQueryService.GetValuesByAgeRangeAsync(measurementType, startAge, endAge, sex);
-        EncryptedAverageResult result = _encryptionService.Encrypt(values);
-        return Ok(result);
-    }
-
-    [HttpGet("by-loinc")]
-    public async Task<IActionResult> GetAverageByLoincCode(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
-    {
-        List<decimal> values = await _fhirQueryService.GetValuesByLoincCodeAsync(loincCode, startDate, endDate, sex);
-        EncryptedAverageResult result = _encryptionService.Encrypt(values);
-        return Ok(result);
-    }
-
-    [HttpGet("by-loinc-age")]
-    public async Task<IActionResult> GetAverageByLoincCodeAndAgeRange(string loincCode, int startAge, int endAge, PatientSex? sex)
-    {
-        List<decimal> values = await _fhirQueryService.GetValuesByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex);
-        EncryptedAverageResult result = _encryptionService.Encrypt(values);
+        List<decimal> values = await _fhirQueryService.GetValuesByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
+        EncryptedStatisticsResult result = _encryptionService.Encrypt(values);
         return Ok(result);
     }
 }

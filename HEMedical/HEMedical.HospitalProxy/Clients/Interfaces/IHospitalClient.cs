@@ -1,24 +1,22 @@
-using HEMedical.HospitalProxy.DTOs;
-using HEMedical.Shared.Models;
+using HEMedical.Shared.Fhir;
 
 namespace HEMedical.HospitalProxy.Clients.Interfaces;
 
 /// <summary>
 /// HTTP client for communicating with a FHIR-compatible hospital endpoint
 /// (either the local HEMedical.Hospital or hapi.fhir.org).
-/// Handles raw HTTP calls, JSON parsing, and Bundle pagination.
+/// Measurements are addressed by LOINC code, plus an optional component code
+/// for values recorded inside panel observations (e.g. blood pressure).
 /// </summary>
 public interface IHospitalClient
 {
-    Task<List<FhirObservation>> GetObservationsAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate);
-
     /// <summary>
-    /// Queries observations for an arbitrary LOINC code, without requiring a
-    /// pre-registered <see cref="ClinicalMeasurementType"/>. The value is read
-    /// generically from valueQuantity.value on each resource in the response.
-    /// Returns an empty list if the hospital doesn't recognize the code (404, 400, etc.).
+    /// Queries observations for a LOINC code. When <paramref name="componentLoincCode"/> is set,
+    /// the value is read from the matching entry in the resource's component array;
+    /// otherwise it is read from valueQuantity directly.
+    /// Returns an empty list if the hospital has no data for the code (404, 400, empty Bundle).
     /// </summary>
-    Task<List<FhirObservation>> GetObservationsByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate);
+    Task<List<FhirObservation>> GetObservationsAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate);
 
     Task<FhirPatientInfo?> GetPatientAsync(string patientReference);
 }

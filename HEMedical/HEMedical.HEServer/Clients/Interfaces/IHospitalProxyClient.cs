@@ -1,17 +1,15 @@
-﻿using HEMedical.Shared.DTOs;
+using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
 
 namespace HEMedical.HEServer.Clients.Interfaces;
 
 /// <summary>
 /// HTTP client for communicating with a single HospitalProxy instance.
-/// Each instance is bound to one proxy URL via typed HTTP client registration.
+/// Instances are created per proxy URL by <see cref="Services.StatisticsService"/>,
+/// using an <see cref="IHttpClientFactory"/> named client with the BaseAddress set per call.
 /// </summary>
 public interface IHospitalProxyClient
 {
-    Task<EncryptedAverageResult?> GetByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex);
-    Task<EncryptedAverageResult?> GetByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex);
-
-    Task<EncryptedAverageResult?> GetByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex);
-    Task<EncryptedAverageResult?> GetByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex);
+    Task<EncryptedStatisticsResult?> GetByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex);
+    Task<EncryptedStatisticsResult?> GetByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex);
 }

@@ -38,10 +38,12 @@ public class HEKeyService : IHEKeyService
         keygen.CreatePublicKey(out PublicKey publicKey);
         PublicKey = publicKey;
 
-        using (var stream = File.OpenWrite(SecretKeyPath))
+        // File.Create truncates any existing file; OpenWrite would leave trailing bytes
+        // of a longer stale key in place and corrupt it.
+        using (var stream = File.Create(SecretKeyPath))
             SecretKey.Save(stream);
 
-        using (var stream = File.OpenWrite(PublicKeyPath))
+        using (var stream = File.Create(PublicKeyPath))
             PublicKey.Save(stream);
     }
 

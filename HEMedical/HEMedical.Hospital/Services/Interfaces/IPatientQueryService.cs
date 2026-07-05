@@ -1,6 +1,6 @@
 using HEMedical.Hospital.DTOs;
+using HEMedical.Hospital.Models;
 using HEMedical.Shared.Common;
-using HEMedical.Shared.Models;
 
 namespace HEMedical.Hospital.Services.Interfaces;
 

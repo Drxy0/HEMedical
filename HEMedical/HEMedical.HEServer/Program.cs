@@ -1,5 +1,4 @@
 using HEMedical.HEServer;
-using HEMedical.HEServer.Clients;
 using HEMedical.HEServer.Clients.Interfaces;
 using HEMedical.HEServer.Services;
 using HEMedical.HEServer.Services.Interfaces;
@@ -14,7 +13,8 @@ builder.Services.AddOpenApi();
 
 builder.Services.Configure<HospitalProxySettings>(builder.Configuration.GetSection("HospitalsProxies"));
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-builder.Services.AddHttpClient<IHospitalProxyClient, HospitalProxyClient>();
+// Named client: StatisticsService creates one HospitalProxyClient per configured proxy URL.
+builder.Services.AddHttpClient(nameof(IHospitalProxyClient));
 
 var app = builder.Build();
 

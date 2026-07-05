@@ -1,4 +1,4 @@
-﻿using HEMedical.HEServer.Clients.Interfaces;
+using HEMedical.HEServer.Clients.Interfaces;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
 
@@ -13,9 +13,11 @@ public class HospitalProxyClient : IHospitalProxyClient
         _httpClient = httpClient;
     }
 
-    public async Task<EncryptedAverageResult?> GetByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public async Task<EncryptedStatisticsResult?> GetByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        string url = $"api/statistics/by-date?measurementType={measurementType}";
+        string url = $"api/statistics/by-date?loincCode={Uri.EscapeDataString(loincCode)}";
+        if (componentLoincCode is not null)
+            url += $"&componentLoincCode={Uri.EscapeDataString(componentLoincCode)}";
         if (startDate.HasValue)
             url += $"&startDate={startDate.Value:yyyy-MM-dd}";
         if (endDate.HasValue)
@@ -24,40 +26,18 @@ public class HospitalProxyClient : IHospitalProxyClient
             url += $"&sex={sex.Value}";
         var response = await _httpClient.GetAsync(url);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        return await response.Content.ReadFromJsonAsync<EncryptedStatisticsResult>();
     }
 
-    public async Task<EncryptedAverageResult?> GetByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
+    public async Task<EncryptedStatisticsResult?> GetByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex)
     {
-        string url = $"api/statistics/by-age?measurementType={measurementType}&startAge={startAge}&endAge={endAge}";
+        string url = $"api/statistics/by-age?loincCode={Uri.EscapeDataString(loincCode)}&startAge={startAge}&endAge={endAge}";
+        if (componentLoincCode is not null)
+            url += $"&componentLoincCode={Uri.EscapeDataString(componentLoincCode)}";
         if (sex.HasValue)
             url += $"&sex={sex.Value}";
         var response = await _httpClient.GetAsync(url);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
-    }
-
-    public async Task<EncryptedAverageResult?> GetByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
-    {
-        string url = $"api/statistics/by-loinc?loincCode={Uri.EscapeDataString(loincCode)}";
-        if (startDate.HasValue)
-            url += $"&startDate={startDate.Value:yyyy-MM-dd}";
-        if (endDate.HasValue)
-            url += $"&endDate={endDate.Value:yyyy-MM-dd}";
-        if (sex.HasValue)
-            url += $"&sex={sex.Value}";
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
-    }
-
-    public async Task<EncryptedAverageResult?> GetByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex)
-    {
-        string url = $"api/statistics/by-loinc-age?loincCode={Uri.EscapeDataString(loincCode)}&startAge={startAge}&endAge={endAge}";
-        if (sex.HasValue)
-            url += $"&sex={sex.Value}";
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+        return await response.Content.ReadFromJsonAsync<EncryptedStatisticsResult>();
     }
 }

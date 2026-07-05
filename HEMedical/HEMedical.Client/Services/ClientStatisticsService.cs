@@ -21,147 +21,97 @@ internal class ClientStatisticsService : IStatisticsService
         _loincVerificationService = loincVerificationService;
     }
 
-    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public async Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
-        if (measurementType == ClinicalMeasurementType.BloodPressure)
-        {
-            var (systolicTask, diastolicTask) = (
-                _heServerClient.GetAverageByDateRangeAsync(ClinicalMeasurementType.SystolicBloodPressure, startDate, endDate, sex),
-                _heServerClient.GetAverageByDateRangeAsync(ClinicalMeasurementType.DiastolicBloodPressure, startDate, endDate, sex)
-            );
-            await Task.WhenAll(systolicTask, diastolicTask);
-            return DecryptPair(await systolicTask, await diastolicTask);
-        }
-
-        EncryptedAverageResult? result = await _heServerClient.GetAverageByDateRangeAsync(measurementType, startDate, endDate, sex);
-        return DecryptSingle(measurementType, result);
-    }
-
-    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByPatientAgeRange(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
-    {
-        if (measurementType == ClinicalMeasurementType.BloodPressure)
-        {
-            var (systolicTask, diastolicTask) = (
-                _heServerClient.GetAverageByAgeRangeAsync(ClinicalMeasurementType.SystolicBloodPressure, startAge, endAge, sex),
-                _heServerClient.GetAverageByAgeRangeAsync(ClinicalMeasurementType.DiastolicBloodPressure, startAge, endAge, sex)
-            );
-            await Task.WhenAll(systolicTask, diastolicTask);
-            return DecryptPair(await systolicTask, await diastolicTask);
-        }
-
-        EncryptedAverageResult? result = await _heServerClient.GetAverageByAgeRangeAsync(measurementType, startAge, endAge, sex);
-        return DecryptSingle(measurementType, result);
-    }
-
-    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
-    {
-        Result<string> verification = await _loincVerificationService.VerifyAsync(loincCode);
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
         if (!verification.IsSuccess)
-            return Result<IReadOnlyList<QueryResult>>.Fail(verification.Error!);
+            return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
 
-        EncryptedAverageResult? result = await _heServerClient.GetAverageByLoincCodeAsync(loincCode, startDate, endDate, sex);
-        return DecryptLoinc(verification.Value!, result);
+        EncryptedStatisticsResult? result = await _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
+        return DecryptToQueryResult(verification.Value!, result);
     }
 
-    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex)
+    public async Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex)
     {
-        Result<string> verification = await _loincVerificationService.VerifyAsync(loincCode);
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
         if (!verification.IsSuccess)
-            return Result<IReadOnlyList<QueryResult>>.Fail(verification.Error!);
+            return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
 
-        EncryptedAverageResult? result = await _heServerClient.GetAverageByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex);
-        return DecryptLoinc(verification.Value!, result);
+        EncryptedStatisticsResult? result = await _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
+        return DecryptToQueryResult(verification.Value!, result);
     }
 
-    private Result<IReadOnlyList<QueryResult>> DecryptLoinc(string displayName, EncryptedAverageResult? encrypted)
+    /// <summary>
+    /// Verifies the LOINC code — and the component code, when present — against the
+    /// LOINC terminology service, catching typos before any hospital is queried.
+    /// The returned info describes the measurement itself: the component's when one
+    /// is given (e.g. "Systolic blood pressure"), otherwise the main code's.
+    /// </summary>
+    private async Task<Result<LoincCodeInfo>> VerifyCodesAsync(string loincCode, string? componentLoincCode)
+    {
+        Result<LoincCodeInfo> main = await _loincVerificationService.VerifyAsync(loincCode);
+        if (!main.IsSuccess)
+            return main;
+
+        if (componentLoincCode is null)
+            return main;
+
+        return await _loincVerificationService.VerifyAsync(componentLoincCode);
+    }
+
+    private Result<QueryResult> DecryptToQueryResult(LoincCodeInfo codeInfo, EncryptedStatisticsResult? encrypted)
     {
         if (encrypted is null)
-            return Result<IReadOnlyList<QueryResult>>.Fail("No data returned from HE Server.");
+            return Result<QueryResult>.Fail("No data returned from HE Server.");
 
         try
         {
-            double count = DecryptAndSumVector(encrypted.OnesSum);
+            var (average, stdDev, count) = Decrypt(encrypted);
 
-            // No hospital had any observations for this LOINC code (e.g. all returned 404/empty vectors).
+            // No hospital had any observations for this code (e.g. all returned 404/empty vectors).
             if (count < 0.5)
-                return Result<IReadOnlyList<QueryResult>>.Fail($"No observations found for LOINC code '{displayName}'.");
+                return Result<QueryResult>.Fail($"No observations found for '{codeInfo.DisplayName}'.", ErrorKind.NotFound);
 
-            var (average, stdDev) = Decrypt(encrypted);
-            var queryResult = new QueryResult(displayName, average, stdDev, string.Empty);
-            return Result<IReadOnlyList<QueryResult>>.Ok([queryResult]);
+            return Result<QueryResult>.Ok(new QueryResult(codeInfo.DisplayName, average, stdDev, codeInfo.Unit));
         }
         catch (Exception ex)
         {
-            return Result<IReadOnlyList<QueryResult>>.Fail($"Decryption failed: {ex.Message}");
-        }
-    }
-
-    private Result<IReadOnlyList<QueryResult>> DecryptSingle(ClinicalMeasurementType type, EncryptedAverageResult? encrypted)
-    {
-        if (encrypted is null)
-            return Result<IReadOnlyList<QueryResult>>.Fail("No data returned from HE Server.");
-
-        try
-        {
-            var (average, stdDev) = Decrypt(encrypted);
-            var queryResult = new QueryResult(type.GetName(), average, stdDev, type.GetUnit());
-            return Result<IReadOnlyList<QueryResult>>.Ok([queryResult]);
-        }
-        catch (Exception ex)
-        {
-            return Result<IReadOnlyList<QueryResult>>.Fail($"Decryption failed: {ex.Message}");
-        }
-    }
-
-    private Result<IReadOnlyList<QueryResult>> DecryptPair(EncryptedAverageResult? systolicEncrypted, EncryptedAverageResult? diastolicEncrypted)
-    {
-        if (systolicEncrypted is null || diastolicEncrypted is null)
-            return Result<IReadOnlyList<QueryResult>>.Fail("No data returned from HE Server.");
-        try
-        {
-            var (systolicAvg, systolicStdDev) = Decrypt(systolicEncrypted);
-            var (diastolicAvg, diastolicStdDev) = Decrypt(diastolicEncrypted);
-            return Result<IReadOnlyList<QueryResult>>.Ok([
-                new QueryResult(ClinicalMeasurementType.SystolicBloodPressure.GetName(), systolicAvg, systolicStdDev, ClinicalMeasurementType.SystolicBloodPressure.GetUnit()),
-                new QueryResult(ClinicalMeasurementType.DiastolicBloodPressure.GetName(), diastolicAvg, diastolicStdDev, ClinicalMeasurementType.DiastolicBloodPressure.GetUnit()),
-            ]);
-        }
-        catch (Exception ex)
-        {
-            return Result<IReadOnlyList<QueryResult>>.Fail($"Decryption failed: {ex.Message}");
+            return Result<QueryResult>.Fail($"Decryption failed: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Decrypts an <see cref="EncryptedAverageResult"/> and computes:
+    /// Decrypts an <see cref="EncryptedStatisticsResult"/> and computes:
     /// average = sum(values)/sum(ones), and
     /// population standard deviation = sqrt(E[x²] − E[x]²) using the squares sum.
     /// The variance is clamped at zero because CKKS is an approximate scheme and
     /// noise can push a near-zero variance slightly negative.
+    /// The patient count is returned too, so callers can detect empty result sets
+    /// without decrypting the ones vector a second time.
     /// </summary>
     /// <param name="encryptedResult">The encrypted values, ones and squares vectors returned by the HE Server.</param>
-    /// <returns>The decrypted average and standard deviation.</returns>
-    private (double Average, double StdDev) Decrypt(EncryptedAverageResult encryptedResult)
+    /// <returns>The decrypted average, standard deviation, and patient count.</returns>
+    private (double Average, double StdDev, double Count) Decrypt(EncryptedStatisticsResult encryptedResult)
     {
-        double sum = DecryptAndSumVector(encryptedResult.ValuesSum);
-        double count = DecryptAndSumVector(encryptedResult.OnesSum);
-        double squaresSum = DecryptAndSumVector(encryptedResult.SquaresSum);
+        SEALContext context = _keyService.GetContext();
+        using var decryptor = new Decryptor(context, _keyService.SecretKey);
+        using var encoder = new CKKSEncoder(context);
+
+        double sum = DecryptAndSumVector(encryptedResult.ValuesSum, context, decryptor, encoder);
+        double count = DecryptAndSumVector(encryptedResult.OnesSum, context, decryptor, encoder);
+        double squaresSum = DecryptAndSumVector(encryptedResult.SquaresSum, context, decryptor, encoder);
 
         double average = sum / count;
         double variance = Math.Max(0.0, squaresSum / count - average * average);
-        return (average, Math.Sqrt(variance));
+        return (average, Math.Sqrt(variance), count);
     }
 
     /// <summary>
     /// Decrypts a CKKS ciphertext vector and sums all slots to produce a single scalar value.
     /// Each slot corresponds to one patient's value. Unused slots are padded with zeros and contribute 0 to the sum.
     /// </summary>
-    private double DecryptAndSumVector(byte[] encryptedBytes)
+    private static double DecryptAndSumVector(byte[] encryptedBytes, SEALContext context, Decryptor decryptor, CKKSEncoder encoder)
     {
-        SEALContext context = _keyService.GetContext();
-        using var decryptor = new Decryptor(context, _keyService.SecretKey);
-        using var encoder = new CKKSEncoder(context);
-
         using var ciphertext = new Ciphertext();
         ciphertext.Load(context, new MemoryStream(encryptedBytes));
 

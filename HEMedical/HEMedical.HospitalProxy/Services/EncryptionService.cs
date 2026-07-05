@@ -14,7 +14,7 @@ public class EncryptionService : IEncryptionService
         _keyService = keyService;
     }
 
-    public EncryptedAverageResult Encrypt(List<decimal> values)
+    public EncryptedStatisticsResult Encrypt(List<decimal> values)
     {
         SEALContext context = _keyService.GetContext();
         using var encryptor = new Encryptor(context, _keyService.PublicKey);
@@ -29,7 +29,7 @@ public class EncryptionService : IEncryptionService
         byte[] encryptedOnes = EncryptVector(onesVector, encoder, encryptor);
         byte[] encryptedSquares = EncryptVector(squaresVector, encoder, encryptor);
 
-        return new EncryptedAverageResult(encryptedValues, encryptedOnes, encryptedSquares);
+        return new EncryptedStatisticsResult(encryptedValues, encryptedOnes, encryptedSquares);
     }
 
     /// <summary>

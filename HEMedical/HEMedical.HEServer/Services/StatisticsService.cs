@@ -14,12 +14,14 @@ public class StatisticsService : IStatisticsService
 {
     private readonly HospitalProxySettings _settings;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<StatisticsService> _logger;
     private readonly SEALContext _context;
 
-    public StatisticsService(IOptions<HospitalProxySettings> settings, IHttpClientFactory httpClientFactory)
+    public StatisticsService(IOptions<HospitalProxySettings> settings, IHttpClientFactory httpClientFactory, ILogger<StatisticsService> logger)
     {
         _settings = settings.Value;
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
 
         using EncryptionParameters parms = new(SchemeType.CKKS);
         parms.PolyModulusDegree = CKKSParameters.PolyModulusDegree;
@@ -28,71 +30,31 @@ public class StatisticsService : IStatisticsService
         _context = new SEALContext(parms);
     }
 
-    public async Task<Result<EncryptedAverageResult>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public Task<Result<EncryptedStatisticsResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex) =>
+        QueryProxiesAsync(client => client.GetByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex));
+
+    public Task<Result<EncryptedStatisticsResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex) =>
+        QueryProxiesAsync(client => client.GetByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex));
+
+    /// <summary>
+    /// Runs the given call against every configured hospital proxy in parallel and
+    /// homomorphically aggregates the responses. Proxies that fail are logged and skipped.
+    /// </summary>
+    private async Task<Result<EncryptedStatisticsResult>> QueryProxiesAsync(Func<IHospitalProxyClient, Task<EncryptedStatisticsResult?>> call)
     {
         try
         {
-            var tasks = _settings.Urls.Select(url =>
-                FetchFromProxyAsync(url, client => client.GetByDateRangeAsync(measurementType, startDate, endDate, sex)));
-
-            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
+            var tasks = _settings.Urls.Select(url => FetchFromProxyAsync(url, call));
+            EncryptedStatisticsResult?[] responses = await Task.WhenAll(tasks);
             return AggregateResults(responses);
         }
         catch (Exception ex)
         {
-            return Result<EncryptedAverageResult>.Fail(ex.Message);
+            return Result<EncryptedStatisticsResult>.Fail(ex.Message);
         }
     }
 
-    public async Task<Result<EncryptedAverageResult>> GetAverageByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex)
-    {
-        try
-        {
-            var tasks = _settings.Urls.Select(url =>
-                FetchFromProxyAsync(url, client => client.GetByAgeRangeAsync(measurementType, startAge, endAge, sex)));
-
-            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
-            return AggregateResults(responses);
-        }
-        catch (Exception ex)
-        {
-            return Result<EncryptedAverageResult>.Fail(ex.Message);
-        }
-    }
-
-    public async Task<Result<EncryptedAverageResult>> GetAverageByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
-    {
-        try
-        {
-            var tasks = _settings.Urls.Select(url =>
-                FetchFromProxyAsync(url, client => client.GetByLoincCodeAsync(loincCode, startDate, endDate, sex)));
-
-            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
-            return AggregateResults(responses);
-        }
-        catch (Exception ex)
-        {
-            return Result<EncryptedAverageResult>.Fail(ex.Message);
-        }
-    }
-
-    public async Task<Result<EncryptedAverageResult>> GetAverageByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex)
-    {
-        try
-        {
-            var tasks = _settings.Urls.Select(url =>
-                FetchFromProxyAsync(url, client => client.GetByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex)));
-
-            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
-            return AggregateResults(responses);
-        }
-        catch (Exception ex)
-        {
-            return Result<EncryptedAverageResult>.Fail(ex.Message);
-        }
-    }
-
-    private async Task<EncryptedAverageResult?> FetchFromProxyAsync(string url, Func<IHospitalProxyClient, Task<EncryptedAverageResult?>> call)
+    private async Task<EncryptedStatisticsResult?> FetchFromProxyAsync(string url, Func<IHospitalProxyClient, Task<EncryptedStatisticsResult?>> call)
     {
         try
         {
@@ -100,8 +62,9 @@ public class StatisticsService : IStatisticsService
             http.BaseAddress = new Uri(url);
             return await call(new HospitalProxyClient(http));
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to fetch encrypted statistics from hospital proxy {ProxyUrl}; excluding it from aggregation.", url);
             return null;
         }
     }
@@ -111,12 +74,12 @@ public class StatisticsService : IStatisticsService
     /// <summary>
     /// Aggregates encrypted responses from multiple hospitals by homomorphically summing
     /// the values, ones, and squares vectors slot-by-slot across all hospitals.
-    /// The resulting <see cref="EncryptedAverageResult"/> contains the final sums,
+    /// The resulting <see cref="EncryptedStatisticsResult"/> contains the final sums,
     /// which the Client uses to compute the average and standard deviation.
     /// </summary>
     /// <param name="responses">Encrypted responses from each hospital.</param>
-    /// <returns>The aggregated response <see cref="EncryptedAverageResult"/>.</returns>
-    private Result<EncryptedAverageResult> AggregateResults(EncryptedAverageResult?[] responses)
+    /// <returns>The aggregated response <see cref="EncryptedStatisticsResult"/>.</returns>
+    private Result<EncryptedStatisticsResult> AggregateResults(EncryptedStatisticsResult?[] responses)
     {
         using var evaluator = new Evaluator(_context);
 
@@ -152,7 +115,7 @@ public class StatisticsService : IStatisticsService
         }
 
         if (AreAccumulatorsEmpty(totalSum, totalCount, totalSquares))
-            return Result<EncryptedAverageResult>.Fail("No valid responses received from any hospital.");
+            return Result<EncryptedStatisticsResult>.Fail("No valid responses received from any hospital.");
 
         using var sumStream = new MemoryStream();
         totalSum!.Save(sumStream);
@@ -167,7 +130,7 @@ public class StatisticsService : IStatisticsService
         totalCount.Dispose();
         totalSquares.Dispose();
 
-        return Result<EncryptedAverageResult>.Ok(new EncryptedAverageResult(sumStream.ToArray(), countStream.ToArray(), squaresStream.ToArray()));
+        return Result<EncryptedStatisticsResult>.Ok(new EncryptedStatisticsResult(sumStream.ToArray(), countStream.ToArray(), squaresStream.ToArray()));
     }
 
     private static bool AreAccumulatorsEmpty(Ciphertext? totalSum, Ciphertext? totalCount, Ciphertext? totalSquares) =>

@@ -10,11 +10,51 @@ export const SEX_LABELS: Record<PatientSex, string> = {
   [PatientSex.Other]: 'Other',
 };
 
-export enum ClinicalMeasurementType {
-  BloodPressure = 'BloodPressure',
-  HbA1c = 'HbA1c',
+/**
+ * A single backend query: a LOINC code, plus an optional component code for
+ * values recorded inside panel observations (e.g. systolic inside the BP panel).
+ * `label`/`unit` are display overrides; when absent the backend-provided
+ * LOINC display name is shown.
+ */
+export interface MeasurementQuery {
+  loincCode: string;
+  componentLoincCode?: string;
+  label?: string;
+  unit?: string;
 }
 
+/** A dropdown preset. One preset can fan out into several queries (e.g. blood pressure). */
+export interface MeasurementPreset {
+  id: string;
+  label: string;
+  queries: MeasurementQuery[];
+}
+
+export const MEASUREMENT_PRESETS: MeasurementPreset[] = [
+  {
+    id: 'blood-pressure',
+    label: 'Blood Pressure',
+    queries: [
+      {
+        loincCode: '85354-9',
+        componentLoincCode: '8480-6',
+        label: 'Systolic Blood Pressure',
+        unit: 'mm[Hg]',
+      },
+      {
+        loincCode: '85354-9',
+        componentLoincCode: '8462-4',
+        label: 'Diastolic Blood Pressure',
+        unit: 'mm[Hg]',
+      },
+    ],
+  },
+  {
+    id: 'hba1c',
+    label: 'HbA1c',
+    queries: [{ loincCode: '4548-4', label: 'HbA1c', unit: '%' }],
+  },
+];
 
 export interface QueryResult {
   measurementName: string;
