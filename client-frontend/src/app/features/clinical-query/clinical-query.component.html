@@ -1,211 +1,280 @@
 <section class="clinical-query">
-  <h1>Clinical Measurement Query</h1>
+  <div class="layout">
+    <div class="form-panel">
+      <h1>Clinical Measurement Query</h1>
 
-  <form [formGroup]="form" novalidate>
-    <div class="field">
-      <label for="measurementType">
-        Measurement Type <span class="required" aria-hidden="true">*</span>
-      </label>
-      <select id="measurementType" formControlName="measurementType" required aria-required="true">
-        @for (opt of measurementTypeOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.label }}</option>
-        }
-      </select>
-    </div>
-
-    <fieldset>
-      <legend>Query By</legend>
-      <label class="radio-label">
-        <input type="radio" formControlName="queryType" value="date" />
-        Date Range
-      </label>
-      <label class="radio-label">
-        <input type="radio" formControlName="queryType" value="age" />
-        Patient Age Range
-      </label>
-    </fieldset>
-
-    @if (queryType() === 'date') {
-      <div class="field-group">
+      <form [formGroup]="form" novalidate>
         <div class="field">
-          <label for="startDate"
-            >Start Date <span class="required" aria-hidden="true">*</span></label
+          <label for="measurementType">
+            Measurement Type <span class="required" aria-hidden="true">*</span>
+          </label>
+          <select
+            id="measurementType"
+            formControlName="measurementType"
+            required
+            aria-required="true"
           >
-          <input
-            id="startDate"
-            type="date"
-            formControlName="startDate"
-            [attr.aria-invalid]="
-              submitted() && form.hasError('datesRequired') && !form.controls.startDate.value
-                ? true
-                : null
-            "
-            aria-describedby="startDate-error"
-          />
-          @if (submitted() && form.hasError('datesRequired') && !form.controls.startDate.value) {
-            <span id="startDate-error" class="field-error" role="alert"
-              >Start date is required</span
+            @for (opt of measurementTypeOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
+
+        @if (isCustomLoinc()) {
+          <div class="field">
+            <label for="loincCode"
+              >LOINC Code <span class="required" aria-hidden="true">*</span></label
             >
+            <input
+              id="loincCode"
+              type="text"
+              formControlName="loincCode"
+              placeholder="e.g. 4548-4"
+              autocomplete="off"
+              [attr.aria-invalid]="
+                submitted() && (form.hasError('loincRequired') || form.hasError('loincInvalid'))
+                  ? true
+                  : null
+              "
+              aria-describedby="loincCode-error loincCode-hint"
+            />
+            @if (submitted() && form.hasError('loincRequired')) {
+              <span id="loincCode-error" class="field-error" role="alert"
+                >LOINC code is required</span
+              >
+            } @else if (submitted() && form.hasError('loincInvalid')) {
+              <span id="loincCode-error" class="field-error" role="alert">Invalid LOINC Code</span>
+            }
+          </div>
+        }
+
+        <fieldset>
+          <legend>Query By</legend>
+          <label class="radio-label">
+            <input type="radio" formControlName="queryType" value="date" />
+            Date Range
+          </label>
+          <label class="radio-label">
+            <input type="radio" formControlName="queryType" value="age" />
+            Patient Age Range
+          </label>
+        </fieldset>
+
+        @if (queryType() === 'date') {
+          <div class="field-group">
+            <div class="field">
+              <label for="startDate"
+                >Start Date <span class="required" aria-hidden="true">*</span></label
+              >
+              <input
+                id="startDate"
+                type="date"
+                formControlName="startDate"
+                [attr.aria-invalid]="
+                  submitted() && form.hasError('datesRequired') && !form.controls.startDate.value
+                    ? true
+                    : null
+                "
+                aria-describedby="startDate-error"
+              />
+              @if (
+                submitted() && form.hasError('datesRequired') && !form.controls.startDate.value
+              ) {
+                <span id="startDate-error" class="field-error" role="alert"
+                  >Start date is required</span
+                >
+              }
+            </div>
+            <div class="field">
+              <label for="endDate"
+                >End Date <span class="required" aria-hidden="true">*</span></label
+              >
+              <input
+                id="endDate"
+                type="date"
+                formControlName="endDate"
+                [attr.aria-invalid]="
+                  submitted() && form.hasError('datesRequired') && !form.controls.endDate.value
+                    ? true
+                    : null
+                "
+                aria-describedby="endDate-error"
+              />
+              @if (submitted() && form.hasError('datesRequired') && !form.controls.endDate.value) {
+                <span id="endDate-error" class="field-error" role="alert"
+                  >End date is required</span
+                >
+              }
+            </div>
+          </div>
+          @if (submitted() && form.hasError('dateRangeInvalid')) {
+            <p class="field-error" role="alert">Start date must be before end date.</p>
           }
-        </div>
+        } @else {
+          <div class="field-group">
+            <div class="field">
+              <label for="startAge"
+                >Minimum Age <span class="required" aria-hidden="true">*</span></label
+              >
+              <input
+                id="startAge"
+                type="number"
+                formControlName="startAge"
+                min="0"
+                max="150"
+                [attr.aria-invalid]="
+                  submitted() &&
+                  ((form.hasError('agesRequired') && form.controls.startAge.value == null) ||
+                    form.controls.startAge.invalid)
+                    ? true
+                    : null
+                "
+                aria-describedby="startAge-error"
+              />
+              @if (
+                submitted() && form.hasError('agesRequired') && form.controls.startAge.value == null
+              ) {
+                <span id="startAge-error" class="field-error" role="alert"
+                  >Minimum age is required</span
+                >
+              } @else if (form.controls.startAge.invalid) {
+                <span id="startAge-error" class="field-error" role="alert"
+                  >Age must be between 0 and 150</span
+                >
+              }
+            </div>
+            <div class="field">
+              <label for="endAge"
+                >Maximum Age <span class="required" aria-hidden="true">*</span></label
+              >
+              <input
+                id="endAge"
+                type="number"
+                formControlName="endAge"
+                min="0"
+                max="150"
+                [attr.aria-invalid]="
+                  submitted() &&
+                  ((form.hasError('agesRequired') && form.controls.endAge.value == null) ||
+                    form.controls.endAge.invalid)
+                    ? true
+                    : null
+                "
+                aria-describedby="endAge-error"
+              />
+              @if (
+                submitted() && form.hasError('agesRequired') && form.controls.endAge.value == null
+              ) {
+                <span id="endAge-error" class="field-error" role="alert"
+                  >Maximum age is required</span
+                >
+              } @else if (form.controls.endAge.invalid) {
+                <span id="endAge-error" class="field-error" role="alert"
+                  >Age must be between 0 and 150</span
+                >
+              }
+            </div>
+          </div>
+        }
+
         <div class="field">
-          <label for="endDate">End Date <span class="required" aria-hidden="true">*</span></label>
-          <input
-            id="endDate"
-            type="date"
-            formControlName="endDate"
-            [attr.aria-invalid]="
-              submitted() && form.hasError('datesRequired') && !form.controls.endDate.value
-                ? true
-                : null
-            "
-            aria-describedby="endDate-error"
-          />
-          @if (submitted() && form.hasError('datesRequired') && !form.controls.endDate.value) {
-            <span id="endDate-error" class="field-error" role="alert">End date is required</span>
-          }
+          <label for="patientSex">Patient Sex</label>
+          <select id="patientSex" formControlName="patientSex">
+            <option [value]="null">All</option>
+            @for (opt of sexOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
         </div>
-      </div>
-      @if (submitted() && form.hasError('dateRangeInvalid')) {
-        <p class="field-error" role="alert">Start date must be before end date.</p>
-      }
-    } @else {
-      <div class="field-group">
-        <div class="field">
-          <label for="startAge"
-            >Minimum Age <span class="required" aria-hidden="true">*</span></label
+
+        <div class="button-group">
+          <button
+            type="button"
+            (click)="onQueryHE()"
+            [disabled]="isLoadingHE() || isLoadingPlaintext()"
           >
-          <input
-            id="startAge"
-            type="number"
-            formControlName="startAge"
-            min="0"
-            max="150"
-            [attr.aria-invalid]="
-              submitted() &&
-              ((form.hasError('agesRequired') && form.controls.startAge.value == null) ||
-                form.controls.startAge.invalid)
-                ? true
-                : null
-            "
-            aria-describedby="startAge-error"
-          />
-          @if (
-            submitted() && form.hasError('agesRequired') && form.controls.startAge.value == null
-          ) {
-            <span id="startAge-error" class="field-error" role="alert"
-              >Minimum age is required</span
-            >
-          } @else if (form.controls.startAge.invalid) {
-            <span id="startAge-error" class="field-error" role="alert"
-              >Age must be between 0 and 150</span
-            >
-          }
+            @if (isLoadingHE()) {
+              <span aria-hidden="true">Querying…</span>
+              <span class="sr-only">Loading HE query, please wait</span>
+            } @else {
+              Query HE
+            }
+          </button>
+          <button
+            type="button"
+            (click)="onQueryPlaintext()"
+            [disabled]="isLoadingHE() || isLoadingPlaintext() || isCustomLoinc()"
+            [attr.aria-describedby]="isCustomLoinc() ? 'plaintext-unavailable' : null"
+          >
+            @if (isLoadingPlaintext()) {
+              <span aria-hidden="true">Querying…</span>
+              <span class="sr-only">Loading plaintext query, please wait</span>
+            } @else {
+              Query Plaintext
+            }
+          </button>
         </div>
-        <div class="field">
-          <label for="endAge">Maximum Age <span class="required" aria-hidden="true">*</span></label>
-          <input
-            id="endAge"
-            type="number"
-            formControlName="endAge"
-            min="0"
-            max="150"
-            [attr.aria-invalid]="
-              submitted() &&
-              ((form.hasError('agesRequired') && form.controls.endAge.value == null) ||
-                form.controls.endAge.invalid)
-                ? true
-                : null
-            "
-            aria-describedby="endAge-error"
-          />
-          @if (submitted() && form.hasError('agesRequired') && form.controls.endAge.value == null) {
-            <span id="endAge-error" class="field-error" role="alert">Maximum age is required</span>
-          } @else if (form.controls.endAge.invalid) {
-            <span id="endAge-error" class="field-error" role="alert"
-              >Age must be between 0 and 150</span
-            >
-          }
-        </div>
-      </div>
-    }
-
-    <div class="field">
-      <label for="patientSex">Patient Sex</label>
-      <select id="patientSex" formControlName="patientSex">
-        <option [value]="null">All</option>
-        @for (opt of sexOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.label }}</option>
+        @if (isCustomLoinc()) {
+          <p id="plaintext-unavailable" class="field-hint">
+            Plaintext verification is not available for custom LOINC codes.
+          </p>
         }
-      </select>
+      </form>
     </div>
 
-    <div class="button-group">
-      <button
-        type="button"
-        (click)="onQueryHE()"
-        [disabled]="isLoadingHE() || isLoadingPlaintext()"
-      >
-        @if (isLoadingHE()) {
-          <span aria-hidden="true">Querying…</span>
-          <span class="sr-only">Loading HE query, please wait</span>
-        } @else {
-          Query HE
+    <div class="results-panel">
+      <div aria-live="assertive" aria-atomic="true" class="error-region">
+        @if (heError()) {
+          <p class="error"><strong>HE Query:</strong> {{ heError() }}</p>
         }
-      </button>
-      <button
-        type="button"
-        (click)="onQueryPlaintext()"
-        [disabled]="isLoadingHE() || isLoadingPlaintext()"
-      >
-        @if (isLoadingPlaintext()) {
-          <span aria-hidden="true">Querying…</span>
-          <span class="sr-only">Loading plaintext query, please wait</span>
-        } @else {
-          Query Plaintext
+        @if (plaintextError()) {
+          <p class="error"><strong>Plaintext Query:</strong> {{ plaintextError() }}</p>
         }
-      </button>
-    </div>
-  </form>
-
-  <div aria-live="assertive" aria-atomic="true" class="error-region">
-    @if (heError()) {
-      <p class="error"><strong>HE Query:</strong> {{ heError() }}</p>
-    }
-    @if (plaintextError()) {
-      <p class="error"><strong>Plaintext Query:</strong> {{ plaintextError() }}</p>
-    }
-  </div>
-
-  <div aria-live="polite" aria-atomic="true" class="results-region">
-    @if (isLoadingHE() || isLoadingPlaintext()) {
-      <div class="spinner-wrapper" role="status" aria-label="Loading results">
-        <div class="spinner" aria-hidden="true"></div>
       </div>
-    }
 
-    @if (heResult() !== null || plaintextResult() !== null) {
-      <section class="results">
-        <h2>Results</h2>
-        <dl>
-          @if (heResult(); as heItems) {
-            @for (he of heItems; track he.measurementName) {
-              <div class="result-row">
-                <dt>{{ he.measurementName }} (HE)</dt>
-                <dd>{{ he.value | number: '1.2-2' }} {{ he.unitOfMeasurement }}</dd>
-              </div>
-            }
-          }
-          @if (plaintextResult(); as ptItems) {
-            @for (pt of ptItems; track pt.measurementName) {
-              <div class="result-row">
-                <dt>{{ pt.measurementName }} (Plaintext)</dt>
-                <dd>{{ pt.value | number: '1.2-2' }} {{ pt.unitOfMeasurement }}</dd>
-              </div>
-            }
-          }
-        </dl>
-      </section>
-    }
+      <div aria-live="polite" aria-atomic="true" class="results-region">
+        @if (isLoadingHE() || isLoadingPlaintext()) {
+          <div class="spinner-wrapper" role="status" aria-label="Loading results">
+            <div class="spinner" aria-hidden="true"></div>
+          </div>
+        }
+
+        @if (heResult() !== null || plaintextResult() !== null) {
+          <section class="results">
+            <h2>Results</h2>
+            <dl>
+              @if (heResult(); as heItems) {
+                @for (he of heItems; track he.measurementName) {
+                  <div class="result-row">
+                    <dt>{{ he.measurementName }} (HE)</dt>
+                    <dd>
+                      {{ he.value | number: '1.2-2' }} ± {{ he.stdDev | number: '1.2-2' }}
+                      {{ he.unitOfMeasurement }}
+                    </dd>
+                  </div>
+                }
+              }
+              @if (plaintextResult(); as ptItems) {
+                @for (pt of ptItems; track pt.measurementName) {
+                  <div class="result-row">
+                    <dt>{{ pt.measurementName }} (Plaintext)</dt>
+                    <dd>
+                      {{ pt.value | number: '1.2-2' }} ± {{ pt.stdDev | number: '1.2-2' }}
+                      {{ pt.unitOfMeasurement }}
+                    </dd>
+                  </div>
+                }
+              }
+            </dl>
+
+            <app-statistics-chart [heResults]="heResult()" [plaintextResults]="plaintextResult()" />
+          </section>
+        }
+
+        @if (showResultsPlaceholder()) {
+          <p class="results-placeholder">Run a query to see results here.</p>
+        }
+      </div>
+    </div>
   </div>
 </section>

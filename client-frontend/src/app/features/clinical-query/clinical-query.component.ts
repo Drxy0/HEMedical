@@ -19,28 +19,41 @@ import {
 } from '../../shared/models/clinical-measurement.model';
 import { QueryHEService } from '../../shared/services/query-he.service';
 import { QueryPlaintextService } from '../../shared/services/query-plaintext.service';
+import { StatisticsChartComponent } from './statistics-chart.component';
 
 type QueryType = 'date' | 'age';
 
+export const CUSTOM_LOINC = 'CustomLoinc' as const;
+type MeasurementSelection = ClinicalMeasurementType | typeof CUSTOM_LOINC;
+
+/** LOINC codes are digits, a hyphen, and a single check digit (e.g. 4548-4). */
+const LOINC_CODE_PATTERN = /^\d+-\d$/;
+
 function rangeRequired(group: AbstractControl): ValidationErrors | null {
+  const errors: ValidationErrors = {};
   const queryType = group.get('queryType')?.value;
   if (queryType === 'date') {
     const start = group.get('startDate')?.value as string;
     const end = group.get('endDate')?.value as string;
-    if (!start || !end) return { datesRequired: true };
-    if (start > end) return { dateRangeInvalid: true };
+    if (!start || !end) errors['datesRequired'] = true;
+    else if (start > end) errors['dateRangeInvalid'] = true;
   }
   if (queryType === 'age') {
     const start = group.get('startAge')?.value;
     const end = group.get('endAge')?.value;
-    if (start == null || end == null) return { agesRequired: true };
+    if (start == null || end == null) errors['agesRequired'] = true;
   }
-  return null;
+  if (group.get('measurementType')?.value === CUSTOM_LOINC) {
+    const code = ((group.get('loincCode')?.value as string | null) ?? '').trim();
+    if (!code) errors['loincRequired'] = true;
+    else if (!LOINC_CODE_PATTERN.test(code)) errors['loincInvalid'] = true;
+  }
+  return Object.keys(errors).length ? errors : null;
 }
 
 @Component({
   selector: 'app-clinical-query',
-  imports: [ReactiveFormsModule, DecimalPipe],
+  imports: [ReactiveFormsModule, DecimalPipe, StatisticsChartComponent],
   templateUrl: './clinical-query.component.html',
   styleUrl: './clinical-query.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,9 +66,10 @@ export class ClinicalQueryComponent {
   readonly form = this.fb.group(
     {
       measurementType: [
-        ClinicalMeasurementType.BloodPressure as ClinicalMeasurementType,
+        ClinicalMeasurementType.BloodPressure as MeasurementSelection,
         Validators.required,
       ],
+      loincCode: [null as string | null],
       queryType: ['date' as QueryType],
       startDate: [null as string | null],
       endDate: [null as string | null],
@@ -72,8 +86,10 @@ export class ClinicalQueryComponent {
 
   private readonly measurementTypeValue = toSignal(
     this.form.controls.measurementType.valueChanges,
-    { initialValue: ClinicalMeasurementType.BloodPressure },
+    { initialValue: ClinicalMeasurementType.BloodPressure as MeasurementSelection },
   );
+
+  readonly isCustomLoinc = computed(() => this.measurementTypeValue() === CUSTOM_LOINC);
 
   readonly isLoadingHE = signal(false);
   readonly isLoadingPlaintext = signal(false);
@@ -83,9 +99,21 @@ export class ClinicalQueryComponent {
   readonly heResult = signal<QueryResult[] | null>(null);
   readonly plaintextResult = signal<QueryResult[] | null>(null);
 
-  readonly measurementTypeOptions = [
+  /** True while the results panel has nothing to show (only rendered on wide screens). */
+  readonly showResultsPlaceholder = computed(
+    () =>
+      !this.isLoadingHE() &&
+      !this.isLoadingPlaintext() &&
+      this.heResult() === null &&
+      this.plaintextResult() === null &&
+      !this.heError() &&
+      !this.plaintextError(),
+  );
+
+  readonly measurementTypeOptions: { value: MeasurementSelection; label: string }[] = [
     { value: ClinicalMeasurementType.BloodPressure, label: 'Blood Pressure' },
     { value: ClinicalMeasurementType.HbA1c, label: 'HbA1c' },
+    { value: CUSTOM_LOINC, label: 'Custom LOINC code…' },
   ];
 
   readonly sexOptions = [
@@ -99,8 +127,16 @@ export class ClinicalQueryComponent {
     this.submitted.set(true);
     if (this.form.invalid) return;
 
-    const { measurementType, queryType, startDate, endDate, startAge, endAge, patientSex } =
-      this.form.getRawValue();
+    const {
+      measurementType,
+      loincCode,
+      queryType,
+      startDate,
+      endDate,
+      startAge,
+      endAge,
+      patientSex,
+    } = this.form.getRawValue();
 
     const sex = patientSex ?? undefined;
 
@@ -108,20 +144,34 @@ export class ClinicalQueryComponent {
     this.heError.set(null);
     this.heResult.set(null);
 
-    const request$ =
-      queryType === 'date'
-        ? this.queryHEService.getAverageByDateRange(
-            measurementType!,
-            startDate ?? undefined,
-            endDate ?? undefined,
-            sex,
-          )
-        : this.queryHEService.getAverageByAgeRange(
-            measurementType!,
-            startAge ?? undefined,
-            endAge ?? undefined,
-            sex,
-          );
+    let request$;
+    if (measurementType === CUSTOM_LOINC) {
+      const code = loincCode!.trim();
+      request$ =
+        queryType === 'date'
+          ? this.queryHEService.getAverageByLoincDateRange(
+              code,
+              startDate ?? undefined,
+              endDate ?? undefined,
+              sex,
+            )
+          : this.queryHEService.getAverageByLoincAgeRange(code, startAge!, endAge!, sex);
+    } else {
+      request$ =
+        queryType === 'date'
+          ? this.queryHEService.getAverageByDateRange(
+              measurementType!,
+              startDate ?? undefined,
+              endDate ?? undefined,
+              sex,
+            )
+          : this.queryHEService.getAverageByAgeRange(
+              measurementType!,
+              startAge ?? undefined,
+              endAge ?? undefined,
+              sex,
+            );
+    }
 
     request$
       .pipe(
@@ -136,7 +186,8 @@ export class ClinicalQueryComponent {
 
   onQueryPlaintext(): void {
     this.submitted.set(true);
-    if (this.form.invalid) return;
+    // Plaintext verification queries only support the predefined measurement types.
+    if (this.form.invalid || this.isCustomLoinc()) return;
 
     const { measurementType, queryType, startDate, endDate, startAge, endAge, patientSex } =
       this.form.getRawValue();
@@ -146,16 +197,17 @@ export class ClinicalQueryComponent {
     this.plaintextError.set(null);
     this.plaintextResult.set(null);
 
+    const type = measurementType as ClinicalMeasurementType;
     const request$ =
       queryType === 'date'
         ? this.queryPlaintextService.getAverageByDateRange(
-            measurementType!,
+            type,
             startDate ?? undefined,
             endDate ?? undefined,
             sex,
           )
         : this.queryPlaintextService.getAverageByAgeRange(
-            measurementType!,
+            type,
             startAge ?? undefined,
             endAge ?? undefined,
             sex,

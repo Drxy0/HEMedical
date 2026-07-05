@@ -110,9 +110,9 @@ public class StatisticsService : IStatisticsService
 
     /// <summary>
     /// Aggregates encrypted responses from multiple hospitals by homomorphically summing
-    /// the values vectors and ones vectors slot-by-slot across all hospitals.
-    /// The resulting <see cref="EncryptedAverageResult"/> contains the final sum and ones vectors,
-    /// which the Client uses to compute the average.
+    /// the values, ones, and squares vectors slot-by-slot across all hospitals.
+    /// The resulting <see cref="EncryptedAverageResult"/> contains the final sums,
+    /// which the Client uses to compute the average and standard deviation.
     /// </summary>
     /// <param name="responses">Encrypted responses from each hospital.</param>
     /// <returns>The aggregated response <see cref="EncryptedAverageResult"/>.</returns>
@@ -122,6 +122,7 @@ public class StatisticsService : IStatisticsService
 
         Ciphertext? totalSum = null;
         Ciphertext? totalCount = null;
+        Ciphertext? totalSquares = null;
 
         foreach (var response in responses)
         {
@@ -133,19 +134,24 @@ public class StatisticsService : IStatisticsService
             using var count = new Ciphertext();
             count.Load(_context, new MemoryStream(response.OnesSum));
 
-            if (AreAccumulatorsEmpty(totalSum, totalCount))
+            using var squares = new Ciphertext();
+            squares.Load(_context, new MemoryStream(response.SquaresSum));
+
+            if (AreAccumulatorsEmpty(totalSum, totalCount, totalSquares))
             {
                 totalSum = new Ciphertext(sum);
                 totalCount = new Ciphertext(count);
+                totalSquares = new Ciphertext(squares);
             }
             else
             {
                 evaluator.AddInplace(totalSum, sum);
                 evaluator.AddInplace(totalCount, count);
+                evaluator.AddInplace(totalSquares, squares);
             }
         }
 
-        if (AreAccumulatorsEmpty(totalSum, totalCount))
+        if (AreAccumulatorsEmpty(totalSum, totalCount, totalSquares))
             return Result<EncryptedAverageResult>.Fail("No valid responses received from any hospital.");
 
         using var sumStream = new MemoryStream();
@@ -154,14 +160,18 @@ public class StatisticsService : IStatisticsService
         using var countStream = new MemoryStream();
         totalCount!.Save(countStream);
 
+        using var squaresStream = new MemoryStream();
+        totalSquares!.Save(squaresStream);
+
         totalSum.Dispose();
         totalCount.Dispose();
+        totalSquares.Dispose();
 
-        return Result<EncryptedAverageResult>.Ok(new EncryptedAverageResult(sumStream.ToArray(), countStream.ToArray()));
+        return Result<EncryptedAverageResult>.Ok(new EncryptedAverageResult(sumStream.ToArray(), countStream.ToArray(), squaresStream.ToArray()));
     }
 
-    private static bool AreAccumulatorsEmpty(Ciphertext? totalSum, Ciphertext? totalCount) =>
-        (totalSum is null || totalCount is null);
+    private static bool AreAccumulatorsEmpty(Ciphertext? totalSum, Ciphertext? totalCount, Ciphertext? totalSquares) =>
+        (totalSum is null || totalCount is null || totalSquares is null);
 
     #endregion SEAL Aggregation Logic
 }

@@ -19,5 +19,6 @@ export enum ClinicalMeasurementType {
 export interface QueryResult {
   measurementName: string;
   value: number;
+  stdDev: number;
   unitOfMeasurement: string;
 }

@@ -32,4 +32,31 @@ export class QueryHEService {
     if (sex) params = params.set('sex', sex);
     return this.http.get<QueryResult[]>('/api/statistics/by-age', { params });
   }
+
+  getAverageByLoincDateRange(
+    loincCode: string,
+    startDate?: string,
+    endDate?: string,
+    sex?: PatientSex,
+  ): Observable<QueryResult[]> {
+    let params = new HttpParams().set('loincCode', loincCode);
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (sex) params = params.set('sex', sex);
+    return this.http.get<QueryResult[]>('/api/statistics/by-loinc', { params });
+  }
+
+  getAverageByLoincAgeRange(
+    loincCode: string,
+    startAge: number,
+    endAge: number,
+    sex?: PatientSex,
+  ): Observable<QueryResult[]> {
+    let params = new HttpParams()
+      .set('loincCode', loincCode)
+      .set('startAge', startAge)
+      .set('endAge', endAge);
+    if (sex) params = params.set('sex', sex);
+    return this.http.get<QueryResult[]>('/api/statistics/by-loinc-age', { params });
+  }
 }

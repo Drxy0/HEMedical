@@ -11,6 +11,89 @@
   }
 }
 
+// Hidden on narrow screens where the results simply flow below the form.
+.results-placeholder {
+  display: none;
+}
+
+// Side-by-side layout: form on the left, results on the right.
+@media (min-width: 960px) {
+  .clinical-query {
+    max-width: 1280px;
+  }
+
+  // Both columns stretch to the height of the taller one.
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: stretch;
+  }
+
+  .results-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+    min-height: 16rem;
+    max-width: 34rem;
+    margin: 0;
+    border: 2px dashed #d1d5db;
+    border-radius: 0.5rem;
+    color: #6b7280;
+    font-size: 0.9375rem;
+  }
+
+  // The form column stretches too, pinning the query buttons to its bottom
+  // so they line up with the bottom edge of the results card.
+  .form-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    form {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .button-group {
+      margin-top: auto;
+      padding-top: 1rem;
+    }
+  }
+
+  // The results column is a flex chain so the card (or placeholder)
+  // fills the full column height, matching the form.
+  .results-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    .error-region,
+    .results-region {
+      margin-top: 0;
+    }
+
+    .error {
+      margin-bottom: 1rem;
+    }
+
+    .results-region {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .results {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 34rem;
+    }
+  }
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -25,6 +108,7 @@
 
   input[type='date'],
   input[type='number'],
+  input[type='text'],
   select {
     padding: 0.5rem 0.75rem;
     border: 1px solid #d1d5db;
@@ -55,6 +139,12 @@
     color: #991b1b;
     margin-top: 0.125rem;
   }
+}
+
+.field-hint {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin: 0;
 }
 
 .field-group {

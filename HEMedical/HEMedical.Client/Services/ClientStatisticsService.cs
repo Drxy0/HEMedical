@@ -80,14 +80,14 @@ internal class ClientStatisticsService : IStatisticsService
 
         try
         {
-            double sum = DecryptAndSumVector(encrypted.ValuesSum);
             double count = DecryptAndSumVector(encrypted.OnesSum);
 
             // No hospital had any observations for this LOINC code (e.g. all returned 404/empty vectors).
             if (count < 0.5)
                 return Result<IReadOnlyList<QueryResult>>.Fail($"No observations found for LOINC code '{displayName}'.");
 
-            var queryResult = new QueryResult(displayName, sum / count, string.Empty);
+            var (average, stdDev) = Decrypt(encrypted);
+            var queryResult = new QueryResult(displayName, average, stdDev, string.Empty);
             return Result<IReadOnlyList<QueryResult>>.Ok([queryResult]);
         }
         catch (Exception ex)
@@ -103,7 +103,8 @@ internal class ClientStatisticsService : IStatisticsService
 
         try
         {
-            var queryResult = new QueryResult(type.GetName(), Decrypt(encrypted), type.GetUnit());
+            var (average, stdDev) = Decrypt(encrypted);
+            var queryResult = new QueryResult(type.GetName(), average, stdDev, type.GetUnit());
             return Result<IReadOnlyList<QueryResult>>.Ok([queryResult]);
         }
         catch (Exception ex)
@@ -118,9 +119,11 @@ internal class ClientStatisticsService : IStatisticsService
             return Result<IReadOnlyList<QueryResult>>.Fail("No data returned from HE Server.");
         try
         {
+            var (systolicAvg, systolicStdDev) = Decrypt(systolicEncrypted);
+            var (diastolicAvg, diastolicStdDev) = Decrypt(diastolicEncrypted);
             return Result<IReadOnlyList<QueryResult>>.Ok([
-                new QueryResult(ClinicalMeasurementType.SystolicBloodPressure.GetName(), Decrypt(systolicEncrypted), ClinicalMeasurementType.SystolicBloodPressure.GetUnit()),
-                new QueryResult(ClinicalMeasurementType.DiastolicBloodPressure.GetName(), Decrypt(diastolicEncrypted), ClinicalMeasurementType.DiastolicBloodPressure.GetUnit()),
+                new QueryResult(ClinicalMeasurementType.SystolicBloodPressure.GetName(), systolicAvg, systolicStdDev, ClinicalMeasurementType.SystolicBloodPressure.GetUnit()),
+                new QueryResult(ClinicalMeasurementType.DiastolicBloodPressure.GetName(), diastolicAvg, diastolicStdDev, ClinicalMeasurementType.DiastolicBloodPressure.GetUnit()),
             ]);
         }
         catch (Exception ex)
@@ -130,15 +133,23 @@ internal class ClientStatisticsService : IStatisticsService
     }
 
     /// <summary>
-    /// Decrypts an <see cref="EncryptedAverageResult"/> and computes the average like so: sum(values)/sum(ones).
+    /// Decrypts an <see cref="EncryptedAverageResult"/> and computes:
+    /// average = sum(values)/sum(ones), and
+    /// population standard deviation = sqrt(E[x²] − E[x]²) using the squares sum.
+    /// The variance is clamped at zero because CKKS is an approximate scheme and
+    /// noise can push a near-zero variance slightly negative.
     /// </summary>
-    /// <param name="encryptedResult">The encrypted values and ones vectors returned by the HE Server.</param>
-    /// <returns>The decrypted average value.</returns>
-    private double Decrypt(EncryptedAverageResult encryptedResult)
+    /// <param name="encryptedResult">The encrypted values, ones and squares vectors returned by the HE Server.</param>
+    /// <returns>The decrypted average and standard deviation.</returns>
+    private (double Average, double StdDev) Decrypt(EncryptedAverageResult encryptedResult)
     {
         double sum = DecryptAndSumVector(encryptedResult.ValuesSum);
         double count = DecryptAndSumVector(encryptedResult.OnesSum);
-        return sum / count;
+        double squaresSum = DecryptAndSumVector(encryptedResult.SquaresSum);
+
+        double average = sum / count;
+        double variance = Math.Max(0.0, squaresSum / count - average * average);
+        return (average, Math.Sqrt(variance));
     }
 
     /// <summary>

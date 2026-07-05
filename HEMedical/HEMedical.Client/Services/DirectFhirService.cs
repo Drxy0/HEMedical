@@ -76,8 +76,8 @@ public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logge
         );
         await Task.WhenAll(systolicTask, diastolicTask);
 
-        Result<double> systolic = await systolicTask;
-        Result<double> diastolic = await diastolicTask;
+        Result<(double Average, double StdDev)> systolic = await systolicTask;
+        Result<(double Average, double StdDev)> diastolic = await diastolicTask;
 
         if (!systolic.IsSuccess)
             return Result<IReadOnlyList<QueryResult>>.Fail(systolic.Error ?? "Systolic query failed.");
@@ -85,8 +85,8 @@ public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logge
             return Result<IReadOnlyList<QueryResult>>.Fail(diastolic.Error ?? "Diastolic query failed.");
 
         return Result<IReadOnlyList<QueryResult>>.Ok([
-            new QueryResult(ClinicalMeasurementType.SystolicBloodPressure.GetName(), systolic.Value, ClinicalMeasurementType.SystolicBloodPressure.GetUnit()),
-            new QueryResult(ClinicalMeasurementType.DiastolicBloodPressure.GetName(), diastolic.Value, ClinicalMeasurementType.DiastolicBloodPressure.GetUnit()),
+            new QueryResult(ClinicalMeasurementType.SystolicBloodPressure.GetName(), systolic.Value.Average, systolic.Value.StdDev, ClinicalMeasurementType.SystolicBloodPressure.GetUnit()),
+            new QueryResult(ClinicalMeasurementType.DiastolicBloodPressure.GetName(), diastolic.Value.Average, diastolic.Value.StdDev, ClinicalMeasurementType.DiastolicBloodPressure.GetUnit()),
         ]);
     }
 
@@ -105,9 +105,9 @@ public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logge
         if (parser is null)
             return Result<IReadOnlyList<QueryResult>>.Fail($"Unsupported measurement type: {measurementType}");
 
-        Result<double> valueResult = await GetAverageAsync(code, parser, startDate, endDate, startAge, endAge, sex);
+        Result<(double Average, double StdDev)> valueResult = await GetAverageAsync(code, parser, startDate, endDate, startAge, endAge, sex);
         return valueResult.IsSuccess
-            ? Result<IReadOnlyList<QueryResult>>.Ok([new QueryResult(measurementType.GetName(), valueResult.Value, measurementType.GetUnit())])
+            ? Result<IReadOnlyList<QueryResult>>.Ok([new QueryResult(measurementType.GetName(), valueResult.Value.Average, valueResult.Value.StdDev, measurementType.GetUnit())])
             : Result<IReadOnlyList<QueryResult>>.Fail(valueResult.Error ?? "Query failed.");
     }
 
@@ -115,7 +115,7 @@ public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logge
 
     #region Core fetch logic
 
-    private async Task<Result<double>> GetAverageAsync(
+    private async Task<Result<(double Average, double StdDev)>> GetAverageAsync(
         string code,
         Func<JsonNode, FhirObservation?> parser,
         DateOnly? startDate, DateOnly? endDate,
@@ -137,10 +137,15 @@ public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logge
         if (values.Count == 0)
         {
             _logger.LogWarning("No observations found for code {Code} in the given range.", code);
-            return Result<double>.Fail("No observations found.");
+            return Result<(double Average, double StdDev)>.Fail("No observations found.");
         }
 
-        return Result<double>.Ok(values.Average(v => (double)v));
+        // Population standard deviation, matching the HE path's E[x²] − E[x]² formula.
+        double average = values.Average(v => (double)v);
+        double variance = values.Average(v => (double)v * (double)v) - average * average;
+        double stdDev = Math.Sqrt(Math.Max(0.0, variance));
+
+        return Result<(double Average, double StdDev)>.Ok((average, stdDev));
     }
 
     private async Task<List<FhirObservation>> FetchAllAsync(string url, Func<JsonNode, FhirObservation?> parser)
