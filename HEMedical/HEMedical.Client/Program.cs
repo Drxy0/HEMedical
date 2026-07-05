@@ -2,6 +2,8 @@ using HEMedical.Client.Clients;
 using HEMedical.Client.Clients.Interfaces;
 using HEMedical.Client.Services;
 using HEMedical.Client.Services.Interfaces;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +29,19 @@ builder.Services.AddScoped<IStatisticsService, ClientStatisticsService>();
 builder.Services.AddHttpClient<IHEServerClient, HEServerClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["HEServerBaseUrl"]!);
+});
+
+builder.Services.AddHttpClient<ILoincVerificationService, LoincVerificationService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Loinc:BaseUrl"] ?? "https://fhir.loinc.org/");
+
+    string? username = builder.Configuration["Loinc:Username"];
+    string? password = builder.Configuration["Loinc:Password"];
+    if (!string.IsNullOrEmpty(username))
+    {
+        string basicAuth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{username}:{password}"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+    }
 });
 
 var app = builder.Build();

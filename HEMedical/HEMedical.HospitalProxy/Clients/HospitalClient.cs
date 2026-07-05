@@ -31,6 +31,17 @@ public HospitalClient(HttpClient httpClient)
         return await FetchAllObservationsAsync(url, parser);
     }
 
+    public async Task<List<FhirObservation>> GetObservationsByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate)
+    {
+        string url = $"{_baseUrl}/Observation?code={loincCode}&_count=1000";
+        if (startDate.HasValue)
+            url += $"&date=ge{startDate.Value:yyyy-MM-dd}";
+        if (endDate.HasValue)
+            url += $"&date=le{endDate.Value:yyyy-MM-dd}";
+
+        return await FetchAllObservationsAsync(url, ParseGenericObservation);
+    }
+
     public async Task<FhirPatientInfo?> GetPatientAsync(string patientReference)
     {
         string url = patientReference.StartsWith("http")
@@ -68,7 +79,7 @@ public HospitalClient(HttpClient httpClient)
         {
             case ClinicalMeasurementType.HbA1c:
                 loincCode = measurementType.GetLoincCode();
-                parser = ParseHbA1cObservation;
+                parser = ParseGenericObservation;
                 return true;
             case ClinicalMeasurementType.SystolicBloodPressure:
             case ClinicalMeasurementType.DiastolicBloodPressure:
@@ -91,7 +102,10 @@ public HospitalClient(HttpClient httpClient)
         while (nextUrl is not null)
         {
             var response = await _httpClient.GetAsync(nextUrl);
-            response.EnsureSuccessStatusCode();
+
+            // Hospital doesn't recognize the code (404, 400, etc.) — treat as no data rather than throwing.
+            if (!response.IsSuccessStatusCode)
+                break;
 
             string json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
@@ -118,7 +132,11 @@ public HospitalClient(HttpClient httpClient)
         return results;
     }
 
-    private static FhirObservation? ParseHbA1cObservation(JsonElement resource)
+    /// <summary>
+    /// Generic observation parser used for any LOINC code: reads the patient reference,
+    /// effective date, and valueQuantity.value directly from the resource JSON.
+    /// </summary>
+    private static FhirObservation? ParseGenericObservation(JsonElement resource)
     {
         if (!resource.TryGetProperty("subject", out var subject))
             return null;

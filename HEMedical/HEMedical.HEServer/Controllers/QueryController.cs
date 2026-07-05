@@ -21,4 +21,18 @@ public class QueryController(IStatisticsService _statService) : ControllerBase
         var result = await _statService.GetAverageByAgeRangeAsync(measurementType, startAge, endAge, sex);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
+
+    [HttpGet("by-loinc")]
+    public async Task<IActionResult> GetAverageByLoincCode(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    {
+        var result = await _statService.GetAverageByLoincCodeAsync(loincCode, startDate, endDate, sex);
+        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+    }
+
+    [HttpGet("by-loinc-age")]
+    public async Task<IActionResult> GetAverageByLoincCodeAndAgeRange(string loincCode, int startAge, int endAge, PatientSex? sex)
+    {
+        var result = await _statService.GetAverageByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex);
+        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+    }
 }

@@ -11,4 +11,7 @@ public interface IHospitalProxyClient
 {
     Task<EncryptedAverageResult?> GetByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex);
     Task<EncryptedAverageResult?> GetByAgeRangeAsync(ClinicalMeasurementType measurementType, int startAge, int endAge, PatientSex? sex);
+
+    Task<EncryptedAverageResult?> GetByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex);
+    Task<EncryptedAverageResult?> GetByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex);
 }

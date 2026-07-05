@@ -33,7 +33,7 @@ public class StatisticsService : IStatisticsService
         try
         {
             var tasks = _settings.Urls.Select(url =>
-                TryGetFromProxyAsync(url, client => client.GetByDateRangeAsync(measurementType, startDate, endDate, sex)));
+                FetchFromProxyAsync(url, client => client.GetByDateRangeAsync(measurementType, startDate, endDate, sex)));
 
             EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
             return AggregateResults(responses);
@@ -50,6 +50,38 @@ public class StatisticsService : IStatisticsService
         {
             var tasks = _settings.Urls.Select(url =>
                 FetchFromProxyAsync(url, client => client.GetByAgeRangeAsync(measurementType, startAge, endAge, sex)));
+
+            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
+            return AggregateResults(responses);
+        }
+        catch (Exception ex)
+        {
+            return Result<EncryptedAverageResult>.Fail(ex.Message);
+        }
+    }
+
+    public async Task<Result<EncryptedAverageResult>> GetAverageByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    {
+        try
+        {
+            var tasks = _settings.Urls.Select(url =>
+                FetchFromProxyAsync(url, client => client.GetByLoincCodeAsync(loincCode, startDate, endDate, sex)));
+
+            EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
+            return AggregateResults(responses);
+        }
+        catch (Exception ex)
+        {
+            return Result<EncryptedAverageResult>.Fail(ex.Message);
+        }
+    }
+
+    public async Task<Result<EncryptedAverageResult>> GetAverageByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex)
+    {
+        try
+        {
+            var tasks = _settings.Urls.Select(url =>
+                FetchFromProxyAsync(url, client => client.GetByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex)));
 
             EncryptedAverageResult?[] responses = await Task.WhenAll(tasks);
             return AggregateResults(responses);

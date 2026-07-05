@@ -28,6 +28,20 @@ public class FHIRQueryService : IFHIRQueryService
         return await FilterByAgeAndSexAsync(observations, startAge, endAge, sex);
     }
 
+    public async Task<List<decimal>> GetValuesByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    {
+        var observations = await _hospitalClient.GetObservationsByLoincCodeAsync(loincCode, startDate, endDate);
+        return sex.HasValue
+            ? await FilterBySexAndGetLatestAsync(observations, sex.Value)
+            : LatestPerPatient(observations);
+    }
+
+    public async Task<List<decimal>> GetValuesByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex)
+    {
+        var observations = await _hospitalClient.GetObservationsByLoincCodeAsync(loincCode, null, null);
+        return await FilterByAgeAndSexAsync(observations, startAge, endAge, sex);
+    }
+
     private async Task<List<decimal>> FilterBySexAndGetLatestAsync(List<FhirObservation> observations, PatientSex sex)
     {
         var patientRefs = observations.Select(o => o.PatientReference).Distinct().ToList();

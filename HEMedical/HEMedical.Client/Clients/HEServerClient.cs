@@ -37,4 +37,29 @@ public class HEServerClient : IHEServerClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
     }
+
+    public async Task<EncryptedAverageResult?> GetAverageByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    {
+        string url = $"api/query/by-loinc?loincCode={Uri.EscapeDataString(loincCode)}";
+        if (startDate.HasValue)
+            url += $"&startDate={startDate.Value:yyyy-MM-dd}";
+        if (endDate.HasValue)
+            url += $"&endDate={endDate.Value:yyyy-MM-dd}";
+        if (sex.HasValue)
+            url += $"&sex={sex.Value}";
+
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+    }
+
+    public async Task<EncryptedAverageResult?> GetAverageByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex)
+    {
+        string url = $"api/query/by-loinc-age?loincCode={Uri.EscapeDataString(loincCode)}&startAge={startAge}&endAge={endAge}";
+        if (sex.HasValue)
+            url += $"&sex={sex.Value}";
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<EncryptedAverageResult>();
+    }
 }

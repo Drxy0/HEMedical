@@ -12,11 +12,13 @@ internal class ClientStatisticsService : IStatisticsService
 {
     private readonly IHEServerClient _heServerClient;
     private readonly IHEKeyService _keyService;
+    private readonly ILoincVerificationService _loincVerificationService;
 
-    public ClientStatisticsService(IHEServerClient heServerClient, IHEKeyService keyService)
+    public ClientStatisticsService(IHEServerClient heServerClient, IHEKeyService keyService, ILoincVerificationService loincVerificationService)
     {
         _heServerClient = heServerClient;
         _keyService = keyService;
+        _loincVerificationService = loincVerificationService;
     }
 
     public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByDateRangeAsync(ClinicalMeasurementType measurementType, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
@@ -49,6 +51,49 @@ internal class ClientStatisticsService : IStatisticsService
 
         EncryptedAverageResult? result = await _heServerClient.GetAverageByAgeRangeAsync(measurementType, startAge, endAge, sex);
         return DecryptSingle(measurementType, result);
+    }
+
+    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByLoincCodeAsync(string loincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    {
+        Result<string> verification = await _loincVerificationService.VerifyAsync(loincCode);
+        if (!verification.IsSuccess)
+            return Result<IReadOnlyList<QueryResult>>.Fail(verification.Error!);
+
+        EncryptedAverageResult? result = await _heServerClient.GetAverageByLoincCodeAsync(loincCode, startDate, endDate, sex);
+        return DecryptLoinc(verification.Value!, result);
+    }
+
+    public async Task<Result<IReadOnlyList<QueryResult>>> GetAverageByLoincCodeAndAgeRangeAsync(string loincCode, int startAge, int endAge, PatientSex? sex)
+    {
+        Result<string> verification = await _loincVerificationService.VerifyAsync(loincCode);
+        if (!verification.IsSuccess)
+            return Result<IReadOnlyList<QueryResult>>.Fail(verification.Error!);
+
+        EncryptedAverageResult? result = await _heServerClient.GetAverageByLoincCodeAndAgeRangeAsync(loincCode, startAge, endAge, sex);
+        return DecryptLoinc(verification.Value!, result);
+    }
+
+    private Result<IReadOnlyList<QueryResult>> DecryptLoinc(string displayName, EncryptedAverageResult? encrypted)
+    {
+        if (encrypted is null)
+            return Result<IReadOnlyList<QueryResult>>.Fail("No data returned from HE Server.");
+
+        try
+        {
+            double sum = DecryptAndSumVector(encrypted.ValuesSum);
+            double count = DecryptAndSumVector(encrypted.OnesSum);
+
+            // No hospital had any observations for this LOINC code (e.g. all returned 404/empty vectors).
+            if (count < 0.5)
+                return Result<IReadOnlyList<QueryResult>>.Fail($"No observations found for LOINC code '{displayName}'.");
+
+            var queryResult = new QueryResult(displayName, sum / count, string.Empty);
+            return Result<IReadOnlyList<QueryResult>>.Ok([queryResult]);
+        }
+        catch (Exception ex)
+        {
+            return Result<IReadOnlyList<QueryResult>>.Fail($"Decryption failed: {ex.Message}");
+        }
     }
 
     private Result<IReadOnlyList<QueryResult>> DecryptSingle(ClinicalMeasurementType type, EncryptedAverageResult? encrypted)
