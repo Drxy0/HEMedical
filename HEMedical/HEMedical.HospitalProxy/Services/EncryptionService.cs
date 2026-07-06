@@ -32,56 +32,67 @@ public class EncryptionService : IEncryptionService
         return new EncryptedStatisticsResult(encryptedValues, encryptedOnes, encryptedSquares);
     }
 
+    // The vectors below use wraparound packing: patient i lands in slot i % slotCount,
+    // *accumulating* onto whatever is already there. This removes any limit on cohort
+    // size without extra ciphertexts or larger CKKS parameters — it is lossless here
+    // because the client only ever computes the sum over all slots (Σx, Σ1, Σx²),
+    // and wrapping changes how the totals are distributed, not the totals themselves.
+
     /// <summary>
     /// Builds a values vector of length <paramref name="slotCount"/>.
-    /// Each slot contains the corresponding patient's measurement value,
-    /// with unused slots padded with zeros.
+    /// Patient values are packed with wraparound: slot j holds the sum of the values
+    /// of all patients whose index i satisfies i % slotCount == j.
     /// </summary>
     /// <param name="values">Patient measurement values.</param>
     /// <param name="slotCount">Total number of slots determined by CKKS parameters.</param>
     /// <returns>A vector of doubles ready for CKKS encoding.</returns>
     private static List<double> BuildValueVector(List<decimal> values, ulong slotCount)
     {
-        List<double> vector = new((int)slotCount);
-        for (int i = 0; i < (int)slotCount; i++)
-            vector.Add(i < values.Count ? (double)values[i] : 0.0);
+        List<double> vector = ZeroVector(slotCount);
+        for (int i = 0; i < values.Count; i++)
+            vector[i % (int)slotCount] += (double)values[i];
         return vector;
     }
 
     /// <summary>
     /// Builds a ones vector of length <paramref name="slotCount"/>.
-    /// Each slot contains 1.0 for a real patient and 0.0 for unused slots.
-    /// Used as a patient counter — summing all slots yields the total patient count.
+    /// Each patient contributes 1.0 to their (wraparound) slot, so summing all slots
+    /// yields the total patient count.
     /// </summary>
     /// <param name="count">Number of real patients.</param>
     /// <param name="slotCount">Total number of slots determined by CKKS parameters.</param>
-    /// <returns>A vector of ones and zeros ready for CKKS encoding.</returns>
+    /// <returns>A vector of per-slot patient counts ready for CKKS encoding.</returns>
     private static List<double> BuildOnesVector(int count, ulong slotCount)
     {
-        List<double> vector = new((int)slotCount);
-        for (int i = 0; i < (int)slotCount; i++)
-            vector.Add(i < count ? 1.0 : 0.0);
+        List<double> vector = ZeroVector(slotCount);
+        for (int i = 0; i < count; i++)
+            vector[i % (int)slotCount] += 1.0;
         return vector;
     }
 
     /// <summary>
     /// Builds a squares vector of length <paramref name="slotCount"/>.
-    /// Each slot contains the corresponding patient's measurement value squared
-    /// (computed in plaintext before encryption), with unused slots padded with zeros.
-    /// Summing this vector homomorphically yields Σx², which the client combines
-    /// with the values and ones sums to derive variance: E[x²] − E[x]².
+    /// Each patient's squared value (computed in plaintext before encryption) is packed
+    /// with wraparound like the values vector. Summing this vector homomorphically yields Σx²,
+    /// which the client combines with the values and ones sums to derive variance: E[x²] − E[x]².
     /// </summary>
     /// <param name="values">Patient measurement values.</param>
     /// <param name="slotCount">Total number of slots determined by CKKS parameters.</param>
-    /// <returns>A vector of squared values ready for CKKS encoding.</returns>
+    /// <returns>A vector of summed squared values ready for CKKS encoding.</returns>
     private static List<double> BuildSquaresVector(List<decimal> values, ulong slotCount)
     {
-        List<double> vector = new((int)slotCount);
-        for (int i = 0; i < (int)slotCount; i++)
+        List<double> vector = ZeroVector(slotCount);
+        for (int i = 0; i < values.Count; i++)
         {
-            double v = i < values.Count ? (double)values[i] : 0.0;
-            vector.Add(v * v);
+            double v = (double)values[i];
+            vector[i % (int)slotCount] += v * v;
         }
+        return vector;
+    }
+
+    private static List<double> ZeroVector(ulong slotCount)
+    {
+        List<double> vector = new(new double[(int)slotCount]);
         return vector;
     }
 

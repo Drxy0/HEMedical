@@ -58,6 +58,9 @@ internal class LoincVerificationService : ILoincVerificationService
             if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.NotFound)
                 return Result<LoincCodeInfo>.Fail($"'{loincCode}' is not a recognized LOINC code.", ErrorKind.InvalidInput);
 
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                return Result<LoincCodeInfo>.Fail("The LOINC terminology server rejected our credentials — check the Loinc:Username/Loinc:Password configuration.");
+
             if (!response.IsSuccessStatusCode)
                 return Result<LoincCodeInfo>.Fail($"LOINC verification service returned {(int)response.StatusCode}.");
 

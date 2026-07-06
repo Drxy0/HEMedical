@@ -15,10 +15,12 @@ namespace HEMedical.Client.Services;
 internal class DirectFhirService : IDirectFhirService
 {
     private readonly FhirObservationReader _reader;
+    private readonly ILoincVerificationService _loincVerification;
     private readonly ILogger<DirectFhirService> _logger;
 
-    public DirectFhirService(HttpClient httpClient, ILogger<DirectFhirService> logger)
+    public DirectFhirService(HttpClient httpClient, ILoincVerificationService loincVerification, ILogger<DirectFhirService> logger)
     {
+        _loincVerification = loincVerification;
         _logger = logger;
         _reader = new FhirObservationReader(httpClient, logger);
     }
@@ -75,8 +77,17 @@ internal class DirectFhirService : IDirectFhirService
         double variance = values.Average(v => (double)v * (double)v) - average * average;
         double stdDev = Math.Sqrt(Math.Max(0.0, variance));
 
-        // The plaintext path doesn't contact the LOINC terminology service;
-        // the frontend overlays its own preset labels for display.
-        return Result<QueryResult>.Ok(new QueryResult(componentLoincCode ?? loincCode, average, stdDev, string.Empty));
+        // Use the same (cached) LOINC display name as the HE path, so both results land in
+        // the same chart category on the frontend. If the lookup is unavailable the raw code
+        // is used instead — the plaintext statistics themselves never depend on it.
+        Result<LoincCodeInfo> codeInfo = await _loincVerification.VerifyAsync(componentLoincCode ?? loincCode);
+        string name = codeInfo.IsSuccess ? codeInfo.Value!.DisplayName : componentLoincCode ?? loincCode;
+
+        // The unit is the one the hospital actually recorded on its observations,
+        // falling back to LOINC's example unit when the data carries none.
+        string unit = filtered.Select(o => o.Unit).FirstOrDefault(u => !string.IsNullOrEmpty(u))
+            ?? (codeInfo.IsSuccess ? codeInfo.Value!.Unit : string.Empty);
+
+        return Result<QueryResult>.Ok(new QueryResult(name, average, stdDev, unit));
     }
 }

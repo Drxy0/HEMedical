@@ -21,23 +21,35 @@ internal class ClientStatisticsService : IStatisticsService
         _loincVerificationService = loincVerificationService;
     }
 
-    public async Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex) =>
+        QueryAsync(loincCode, componentLoincCode,
+            () => _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex));
+
+    public Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex) =>
+        QueryAsync(loincCode, componentLoincCode,
+            () => _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex));
+
+    /// <summary>
+    /// The common query flow: verify the codes, fetch the encrypted sums from the HE Server,
+    /// decrypt and derive the statistics. HE Server connectivity problems come back as a
+    /// failed result rather than an unhandled exception.
+    /// </summary>
+    private async Task<Result<QueryResult>> QueryAsync(string loincCode, string? componentLoincCode, Func<Task<EncryptedStatisticsResult?>> fetch)
     {
         Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
         if (!verification.IsSuccess)
             return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
 
-        EncryptedStatisticsResult? result = await _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
-        return DecryptToQueryResult(verification.Value!, result);
-    }
+        EncryptedStatisticsResult? result;
+        try
+        {
+            result = await fetch();
+        }
+        catch (Exception ex)
+        {
+            return Result<QueryResult>.Fail($"HE Server request failed: {ex.Message}");
+        }
 
-    public async Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex)
-    {
-        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
-        if (!verification.IsSuccess)
-            return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
-
-        EncryptedStatisticsResult? result = await _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
         return DecryptToQueryResult(verification.Value!, result);
     }
 
@@ -108,7 +120,8 @@ internal class ClientStatisticsService : IStatisticsService
 
     /// <summary>
     /// Decrypts a CKKS ciphertext vector and sums all slots to produce a single scalar value.
-    /// Each slot corresponds to one patient's value. Unused slots are padded with zeros and contribute 0 to the sum.
+    /// Slots hold per-slot accumulations (patients are packed with wraparound at the proxy),
+    /// so only this total is meaningful; unused slots are zero and contribute nothing.
     /// </summary>
     private static double DecryptAndSumVector(byte[] encryptedBytes, SEALContext context, Decryptor decryptor, CKKSEncoder encoder)
     {

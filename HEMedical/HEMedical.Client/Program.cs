@@ -31,6 +31,8 @@ builder.Services.AddHttpClient<IHEServerClient, HEServerClient>(client =>
 builder.Services.AddHttpClient<ILoincVerificationService, LoincVerificationService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Loinc:BaseUrl"] ?? "https://fhir.loinc.org/");
+    // A hung terminology server should fail the query quickly, not stall it for the default 100 s.
+    client.Timeout = TimeSpan.FromSeconds(10);
 
     string? username = builder.Configuration["Loinc:Username"];
     string? password = builder.Configuration["Loinc:Password"];

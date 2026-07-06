@@ -138,7 +138,7 @@ public class FhirObservationReader
             !valueQuantity.TryGetProperty("value", out var valueElement))
             return null;
 
-        return new FhirObservation(patientRef, GetEffectiveDate(resource), valueElement.GetDecimal());
+        return new FhirObservation(patientRef, GetEffectiveDate(resource), valueElement.GetDecimal(), GetUnit(valueQuantity));
     }
 
     private static FhirObservation? ParseComponentObservation(JsonElement resource, string componentCode)
@@ -163,7 +163,7 @@ public class FhirObservationReader
             !vq.TryGetProperty("value", out var vqVal))
             return null;
 
-        return new FhirObservation(patientRef, GetEffectiveDate(resource), vqVal.GetDecimal());
+        return new FhirObservation(patientRef, GetEffectiveDate(resource), vqVal.GetDecimal(), GetUnit(vq));
     }
 
     private static string? GetPatientReference(JsonElement resource) =>
@@ -177,4 +177,7 @@ public class FhirObservationReader
         DateTimeOffset.TryParse(effective.GetString(), out var date)
             ? date
             : null;
+
+    private static string? GetUnit(JsonElement valueQuantity) =>
+        valueQuantity.TryGetProperty("unit", out var unit) ? unit.GetString() : null;
 }

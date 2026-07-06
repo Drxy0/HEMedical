@@ -47,7 +47,7 @@ public class HEKeyService : IHEKeyService
             PublicKey.Save(stream);
     }
 
-    public void LoadKeys()
+    private void LoadKeys()
     {
         PublicKey = new();
         using (var stream = File.OpenRead(PublicKeyPath))

@@ -16,7 +16,7 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// both codes are verified against the online LOINC terminology service before querying.
     /// </summary>
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetStatistics_ByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
+    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex)
     {
         var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
         return this.ToActionResult(result);
@@ -29,7 +29,7 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// both codes are verified against the online LOINC terminology service before querying.
     /// </summary>
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatistics_ByPatientAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex)
     {
         var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
         return this.ToActionResult(result);
