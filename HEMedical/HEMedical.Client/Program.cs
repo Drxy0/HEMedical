@@ -15,18 +15,23 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<IHEKeyService, HEKeyService>();
-bool useHospital = builder.Configuration.GetValue<bool>("UseHospitalBackend");
-string configKey = useHospital ? "HospitalBaseUrl" : "FhirVerificationUrl";
-string fhirBaseUrl = builder.Configuration[configKey]
-    ?? throw new InvalidOperationException($"{configKey} is not configured in appsettings.json");
-
-builder.Services.AddHttpClient<IDirectFhirService, DirectFhirService>(client =>
-    client.BaseAddress = new Uri(fhirBaseUrl));
 builder.Services.AddScoped<IStatisticsService, ClientStatisticsService>();
 builder.Services.AddHttpClient<IHEServerClient, HEServerClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["HEServerBaseUrl"]!);
 });
+// Verification twin: the same queries answered by the PlainServer (plaintext
+// aggregation over the same proxies), used to check the encrypted results.
+// The PlainServer is a test tool and is not deployed in production — when it is
+// not configured, verification queries fail cleanly instead of at startup.
+builder.Services.AddScoped<IPlainStatisticsService, PlainStatisticsService>();
+builder.Services.AddHttpClient<IPlainServerClient, PlainServerClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["PlainServerBaseUrl"] ?? "http://plainserver-not-deployed");
+});
+// Pushes the CKKS public key to the HE Server (startup + periodic re-publish),
+// which hands it to hospital proxies when they register.
+builder.Services.AddHostedService<HEKeyPublisherService>();
 
 builder.Services.AddHttpClient<ILoincVerificationService, LoincVerificationService>(client =>
 {

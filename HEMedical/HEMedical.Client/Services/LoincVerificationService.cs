@@ -44,10 +44,10 @@ internal class LoincVerificationService : ILoincVerificationService
             return Result<LoincCodeInfo>.Fail("LOINC code must not be empty.", ErrorKind.InvalidInput);
 
         if (_knownCodes.TryGetValue(loincCode, out LoincCodeInfo? known))
-            return Result<LoincCodeInfo>.Ok(known);
+            return known;
 
         if (_verifiedCache.TryGetValue(loincCode, out LoincCodeInfo? cached))
-            return Result<LoincCodeInfo>.Ok(cached);
+            return cached;
 
         try
         {
@@ -70,7 +70,7 @@ internal class LoincVerificationService : ILoincVerificationService
 
             var info = ParseLookupResponse(parameters, loincCode);
             _verifiedCache.TryAdd(loincCode, info);
-            return Result<LoincCodeInfo>.Ok(info);
+            return info;
         }
         catch (Exception ex)
         {

@@ -61,4 +61,45 @@ export interface QueryResult {
   value: number;
   stdDev: number;
   unitOfMeasurement: string;
+  sum: number;
+  count: number;
+  skewness: number;
+  kurtosis: number;
+  threshold: number | null;
+  countAboveThreshold: number | null;
+  prevalenceAboveThreshold: number | null;
+}
+
+/** One bar of a breakdown: the average (± σ) for one age group or time period. */
+export interface BreakdownBucket {
+  label: string;
+  average: number;
+  stdDev: number;
+  hasData: boolean;
+}
+
+export interface BreakdownResult {
+  measurementName: string;
+  unitOfMeasurement: string;
+  buckets: BreakdownBucket[];
+}
+
+/** One bar of a frequency histogram: how many patients fall in one value range. */
+export interface HistogramBin {
+  label: string;
+  from: number;
+  to: number;
+  count: number;
+}
+
+/**
+ * A frequency histogram: patient counts per value range. Values outside the requested
+ * bins are reported as the below/above edge counts, so bins + edges = full cohort.
+ */
+export interface HistogramResult {
+  measurementName: string;
+  unitOfMeasurement: string;
+  bins: HistogramBin[];
+  belowRangeCount: number;
+  aboveRangeCount: number;
 }

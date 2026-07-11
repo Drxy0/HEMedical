@@ -27,6 +27,13 @@ public static class ClinicalMeasurementTypeExtensions
         _ => string.Empty
     };
 
+    public static string GetDisplayName(this ClinicalMeasurementType type) => type switch
+    {
+        ClinicalMeasurementType.HbA1c => "Hemoglobin A1c/Hemoglobin.total in Blood",
+        ClinicalMeasurementType.BloodPressure => "Blood pressure panel with all children optional",
+        _ => string.Empty
+    };
+
     public const string SystolicComponentLoincCode = "8480-6";
     public const string DiastolicComponentLoincCode = "8462-4";
 }

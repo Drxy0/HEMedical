@@ -20,8 +20,9 @@ public class FhirObservationReader
     {
         _httpClient = httpClient;
         _logger = logger;
-        _baseUrl = httpClient.BaseAddress?.ToString().TrimEnd('/')
-            ?? throw new InvalidOperationException("HttpClient BaseAddress is not configured.");
+        // BaseAddress is guaranteed: every host validates its FHIR base URL at startup
+        // (Program.cs refuses to boot without it) before wiring the typed client.
+        _baseUrl = httpClient.BaseAddress!.ToString().TrimEnd('/');
     }
 
     /// <summary>

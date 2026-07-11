@@ -20,6 +20,22 @@
           </select>
         </div>
 
+        <fieldset>
+          <legend>Result Type</legend>
+          <label class="radio-label">
+            <input type="radio" formControlName="resultType" value="summary" />
+            Summary (single average)
+          </label>
+          <label class="radio-label">
+            <input type="radio" formControlName="resultType" value="breakdown" />
+            Breakdown (average per group)
+          </label>
+          <label class="radio-label">
+            <input type="radio" formControlName="resultType" value="histogram" />
+            Histogram (patients per value range)
+          </label>
+        </fieldset>
+
         @if (isCustomLoinc()) {
           <div class="field">
             <label for="loincCode"
@@ -133,6 +149,16 @@
           @if (submitted() && form.hasError('dateRangeInvalid')) {
             <p class="field-error" role="alert">Start date must be before end date.</p>
           }
+          @if (isBreakdown()) {
+            <div class="field">
+              <label for="dateBucketMonths">Group by</label>
+              <select id="dateBucketMonths" formControlName="dateBucketMonths">
+                @for (opt of groupByOptions; track opt.value) {
+                  <option [ngValue]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </div>
+          }
         } @else {
           <div class="field-group">
             <div class="field">
@@ -198,6 +224,18 @@
               }
             </div>
           </div>
+          @if (isBreakdown()) {
+            <div class="field">
+              <label for="ageBucketSize">Age group size (years)</label>
+              <input
+                id="ageBucketSize"
+                type="number"
+                formControlName="ageBucketSize"
+                min="1"
+                max="150"
+              />
+            </div>
+          }
         }
 
         <div class="field">
@@ -209,6 +247,65 @@
             }
           </select>
         </div>
+
+        @if (isSummary()) {
+          <div class="field">
+            <label for="threshold">Prevalence threshold</label>
+            <input
+              id="threshold"
+              type="number"
+              formControlName="threshold"
+              step="any"
+              placeholder="optional, e.g. 6.5"
+              aria-describedby="threshold-hint"
+            />
+            <span id="threshold-hint" class="field-hint">
+              Optional — also report the fraction of patients at or above this value.
+            </span>
+          </div>
+        }
+
+        @if (isHistogram()) {
+          <div class="field-row">
+            <div class="field">
+              <label for="binStart"
+                >Bins start at <span class="required" aria-hidden="true">*</span></label
+              >
+              <input
+                id="binStart"
+                type="number"
+                formControlName="binStart"
+                step="any"
+                placeholder="e.g. 4"
+              />
+            </div>
+            <div class="field">
+              <label for="binWidth"
+                >Bin width <span class="required" aria-hidden="true">*</span></label
+              >
+              <input
+                id="binWidth"
+                type="number"
+                formControlName="binWidth"
+                step="any"
+                placeholder="e.g. 0.5"
+              />
+            </div>
+            <div class="field">
+              <label for="binCount"
+                >Number of bins <span class="required" aria-hidden="true">*</span></label
+              >
+              <input id="binCount" type="number" formControlName="binCount" min="1" max="512" />
+            </div>
+          </div>
+          @if (submitted() && form.hasError('binsRequired')) {
+            <span class="field-error" role="alert">Bin start, width and count are required</span>
+          } @else if (submitted() && form.hasError('binsInvalid')) {
+            <span class="field-error" role="alert"
+              >Bin width must be positive; 1–512 bins allowed</span
+            >
+          }
+        }
 
         <div class="button-group">
           <button
@@ -267,6 +364,15 @@
                     <dd>
                       {{ he.value | number: '1.2-2' }} ± {{ he.stdDev | number: '1.2-2' }}
                       {{ he.unitOfMeasurement }}
+                      <span class="result-detail">
+                        n = {{ he.count }} · sum {{ he.sum | number: '1.0-2' }} · skew
+                        {{ he.skewness | number: '1.2-2' }} · kurtosis
+                        {{ he.kurtosis | number: '1.2-2' }}
+                        @if (he.prevalenceAboveThreshold !== null) {
+                          · {{ he.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                          {{ he.threshold }} ({{ he.countAboveThreshold }})
+                        }
+                      </span>
                     </dd>
                   </div>
                 }
@@ -278,6 +384,15 @@
                     <dd>
                       {{ pt.value | number: '1.2-2' }} ± {{ pt.stdDev | number: '1.2-2' }}
                       {{ pt.unitOfMeasurement }}
+                      <span class="result-detail">
+                        n = {{ pt.count }} · sum {{ pt.sum | number: '1.0-2' }} · skew
+                        {{ pt.skewness | number: '1.2-2' }} · kurtosis
+                        {{ pt.kurtosis | number: '1.2-2' }}
+                        @if (pt.prevalenceAboveThreshold !== null) {
+                          · {{ pt.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                          {{ pt.threshold }} ({{ pt.countAboveThreshold }})
+                        }
+                      </span>
                     </dd>
                   </div>
                 }
@@ -285,6 +400,26 @@
             </dl>
 
             <app-statistics-chart [heResults]="heResult()" [plaintextResults]="plaintextResult()" />
+          </section>
+        }
+
+        @if (heBreakdown() !== null || plaintextBreakdown() !== null) {
+          <section class="results">
+            <h2>Breakdown</h2>
+            <app-breakdown-chart
+              [heResult]="heBreakdown()"
+              [plaintextResult]="plaintextBreakdown()"
+            />
+          </section>
+        }
+
+        @if (heHistogram() !== null || plaintextHistogram() !== null) {
+          <section class="results">
+            <h2>Histogram</h2>
+            <app-histogram-chart
+              [heResult]="heHistogram()"
+              [plaintextResult]="plaintextHistogram()"
+            />
           </section>
         }
 

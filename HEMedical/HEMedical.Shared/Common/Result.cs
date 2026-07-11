@@ -24,4 +24,7 @@ public record Result<T>
 
     public static Result<T> Ok(T value) => new() { IsSuccess = true, Value = value };
     public static Result<T> Fail(string error, ErrorKind kind = ErrorKind.Failure) => new() { IsSuccess = false, Error = error, Kind = kind };
+
+    /// <summary>Lets a plain value stand in for a successful result: <c>return value;</c> instead of <c>return Result&lt;T&gt;.Ok(value);</c>.</summary>
+    public static implicit operator Result<T>(T value) => Ok(value);
 }

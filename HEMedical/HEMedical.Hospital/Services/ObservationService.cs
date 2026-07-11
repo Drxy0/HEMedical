@@ -17,12 +17,8 @@ public class ObservationService : IObservationService
         _context = context;
     }
 
-    public async Task<Result<ObservationResult>> CreateAsync(FhirObservationInput input)
+    public async Task<Result<ObservationResult>> CreateAsync(ClinicalMeasurementType type, FhirObservationInput input)
     {
-        string? loincCode = input.Code?.Coding?.FirstOrDefault()?.Code;
-        if (loincCode is null)
-            return Result<ObservationResult>.Fail("Missing code.coding");
-
         if (!int.TryParse(input.Subject?.Reference?.Replace("Patient/", ""), out int patientId))
             return Result<ObservationResult>.Fail("Invalid subject.reference, expected 'Patient/{id}'");
 
@@ -32,14 +28,11 @@ public class ObservationService : IObservationService
 
         DateTimeOffset recordedAt = input.EffectiveDateTime ?? DateTimeOffset.UtcNow;
 
-        string hbA1cCode = ClinicalMeasurementType.HbA1c.GetLoincCode();
-        string bpPanelCode = ClinicalMeasurementType.BloodPressure.GetLoincCode();
-
-        return loincCode switch
+        return type switch
         {
-            _ when loincCode == hbA1cCode => await CreateHbA1cAsync(patientId, recordedAt, input),
-            _ when loincCode == bpPanelCode || loincCode == FhirConstants.BloodPressureModelLoincCode => await CreateBloodPressureAsync(patientId, recordedAt, input),
-            _ => Result<ObservationResult>.Fail($"Unsupported LOINC code: {loincCode}")
+            ClinicalMeasurementType.HbA1c => await CreateHbA1cAsync(patientId, recordedAt, input),
+            ClinicalMeasurementType.BloodPressure => await CreateBloodPressureAsync(patientId, recordedAt, input),
+            _ => Result<ObservationResult>.Fail($"Unsupported measurement type: {type}")
         };
     }
 
@@ -59,7 +52,7 @@ public class ObservationService : IObservationService
         _context.Hb1Ac.Add(hba1c);
         await _context.SaveChangesAsync();
 
-        return Result<ObservationResult>.Ok(new ObservationResult(hba1c.PatientId, hba1c.RecordedAt, hba1c.Value));
+        return new ObservationResult(hba1c.PatientId, hba1c.RecordedAt, hba1c.Value);
     }
 
     private async Task<Result<ObservationResult>> CreateBloodPressureAsync(int patientId, DateTimeOffset recordedAt, FhirObservationInput input)
@@ -85,7 +78,7 @@ public class ObservationService : IObservationService
         _context.BloodPressure.Add(bp);
         await _context.SaveChangesAsync();
 
-        return Result<ObservationResult>.Ok(new ObservationResult(bp.PatientId, bp.RecordedAt, bp.Systolic, bp.Diastolic));
+        return new ObservationResult(bp.PatientId, bp.RecordedAt, bp.Systolic, bp.Diastolic);
     }
 
     private static decimal? GetComponentValue(FhirObservationInput input, string code) =>

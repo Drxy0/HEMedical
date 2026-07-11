@@ -19,5 +19,9 @@
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="Debug|Any CPU" Project="x64" />
   </Project>
+  <Project Path="HEMedical.PlainServer/HEMedical.PlainServer.csproj" Id="64736815-88cc-4d20-9d76-d14a98df027b">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="Debug|Any CPU" Project="x64" />
+  </Project>
   <Project Path="HEMedical.Shared/HEMedical.Shared.csproj" Id="c29c77f5-e14c-4c89-9f26-5c2fe229eef1" />
 </Solution>

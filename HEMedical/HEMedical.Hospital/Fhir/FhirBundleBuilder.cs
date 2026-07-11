@@ -4,30 +4,18 @@ using HEMedical.Shared;
 
 namespace HEMedical.Hospital.Fhir;
 
-public interface IFhirBundleBuilder
-{
-    ClinicalMeasurementType? ResolveType(string loincCode);
-    object BuildBundle(ClinicalMeasurementType type, List<ObservationResult> observations);
-    object BuildEmptyBundle();
-    object BuildSingleResource(ClinicalMeasurementType type, ObservationResult o);
-    DateOnly? ParseDate(string[]? dates, string prefix);
-}
-
 public class FhirBundleBuilder : IFhirBundleBuilder
 {
     public ClinicalMeasurementType? ResolveType(string loincCode) => loincCode switch
     {
         _ when loincCode == ClinicalMeasurementType.HbA1c.GetLoincCode() => ClinicalMeasurementType.HbA1c,
-        // Both the panel code (85354-9) and the direct BP code (55284-4) resolve to BloodPressure,
-        // matching what ObservationService.CreateAsync accepts.
         _ when loincCode == ClinicalMeasurementType.BloodPressure.GetLoincCode() => ClinicalMeasurementType.BloodPressure,
-        _ when loincCode == FhirConstants.BloodPressureModelLoincCode => ClinicalMeasurementType.BloodPressure,
         _ => null
     };
 
     public DateOnly? ParseDate(string[]? dates, string prefix) =>
-        dates?.FirstOrDefault(d => d.StartsWith(prefix)) is string s
-            ? DateOnly.Parse(s[2..])
+        dates?.FirstOrDefault(d => d.StartsWith(prefix)) is string s && DateOnly.TryParse(s[2..], out var date)
+            ? date
             : null;
 
     public object BuildBundle(ClinicalMeasurementType type, List<ObservationResult> observations) => new
@@ -56,36 +44,53 @@ public class FhirBundleBuilder : IFhirBundleBuilder
 
     public object BuildSingleResource(ClinicalMeasurementType type, ObservationResult o) => type switch
     {
-        ClinicalMeasurementType.HbA1c => (object)new
-        {
-            resourceType = "Observation",
-            status = "final",
-            code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = type.GetLoincCode(), display = "Hemoglobin A1c/Hemoglobin.total in Blood" } } },
-            subject = new { reference = $"Patient/{o.PatientId}" },
-            effectiveDateTime = o.RecordedAt.ToString("O"),
-            valueQuantity = new { value = o.Value, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
-        },
-        ClinicalMeasurementType.BloodPressure => new
-        {
-            resourceType = "Observation",
-            status = "final",
-            code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = type.GetLoincCode(), display = "Blood pressure panel with all children optional" } } },
-            subject = new { reference = $"Patient/{o.PatientId}" },
-            effectiveDateTime = o.RecordedAt.ToString("O"),
-            component = new object[]
-            {
-                new
-                {
-                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementTypeExtensions.SystolicComponentLoincCode, display = "Systolic blood pressure" } } },
-                    valueQuantity = new { value = o.Value, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
-                },
-                new
-                {
-                    code = new { coding = new[] { new { system = FhirConstants.LoincSystem, code = ClinicalMeasurementTypeExtensions.DiastolicComponentLoincCode, display = "Diastolic blood pressure" } } },
-                    valueQuantity = new { value = o.Value2 ?? 0m, unit = type.GetUnit(), system = FhirConstants.UnitsSystem, code = type.GetUnit() }
-                }
-            }
-        },
-        _ => throw new ArgumentOutOfRangeException(nameof(type))
+        ClinicalMeasurementType.BloodPressure => BuildBloodPressure(o),
+        // Any single-value measurement (HbA1c today) shares one simple shape — the
+        // code, display name and unit all come from the type itself.
+        _ => BuildSimple(type, o)
     };
+
+    /// <summary>A simple Observation: one value in a single valueQuantity.</summary>
+    private static object BuildSimple(ClinicalMeasurementType type, ObservationResult o) => new
+    {
+        resourceType = "Observation",
+        status = "final",
+        code = Coding(type.GetLoincCode(), type.GetDisplayName()),
+        subject = Subject(o.PatientId),
+        effectiveDateTime = o.RecordedAt.ToString("O"),
+        valueQuantity = Quantity(o.Value, type.GetUnit())
+    };
+
+    /// <summary>A blood-pressure panel Observation: systolic and diastolic in the component array.</summary>
+    private static object BuildBloodPressure(ObservationResult o)
+    {
+        const ClinicalMeasurementType type = ClinicalMeasurementType.BloodPressure;
+        string unit = type.GetUnit();
+        return new
+        {
+            resourceType = "Observation",
+            status = "final",
+            code = Coding(type.GetLoincCode(), type.GetDisplayName()),
+            subject = Subject(o.PatientId),
+            effectiveDateTime = o.RecordedAt.ToString("O"),
+            component = new[]
+            {
+                Component(ClinicalMeasurementTypeExtensions.SystolicComponentLoincCode, "Systolic blood pressure", o.Value, unit),
+                Component(ClinicalMeasurementTypeExtensions.DiastolicComponentLoincCode, "Diastolic blood pressure", o.Value2 ?? 0m, unit)
+            }
+        };
+    }
+
+
+    private static object Coding(string loincCode, string display) =>
+        new { coding = new[] { new { system = FhirConstants.LoincSystem, code = loincCode, display } } };
+
+    private static object Subject(int patientId) =>
+        new { reference = $"Patient/{patientId}" };
+
+    private static object Quantity(decimal value, string unit) =>
+        new { value, unit, system = FhirConstants.UnitsSystem, code = unit };
+
+    private static object Component(string loincCode, string display, decimal value, string unit) =>
+        new { code = Coding(loincCode, display), valueQuantity = Quantity(value, unit) };
 }

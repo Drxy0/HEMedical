@@ -13,33 +13,75 @@ internal class ClientStatisticsService : IStatisticsService
     private readonly IHEServerClient _heServerClient;
     private readonly IHEKeyService _keyService;
     private readonly ILoincVerificationService _loincVerificationService;
+    private readonly int _maxBuckets;
+    private readonly int _maxConcurrency;
 
-    public ClientStatisticsService(IHEServerClient heServerClient, IHEKeyService keyService, ILoincVerificationService loincVerificationService)
+    public ClientStatisticsService(IHEServerClient heServerClient, IHEKeyService keyService, ILoincVerificationService loincVerificationService, IConfiguration configuration)
     {
         _heServerClient = heServerClient;
         _keyService = keyService;
         _loincVerificationService = loincVerificationService;
+        _maxBuckets = configuration.GetValue("Breakdown:MaxBuckets", BreakdownBuckets.DefaultMaxBuckets);
+        _maxConcurrency = configuration.GetValue("Breakdown:MaxConcurrency", BreakdownBuckets.DefaultMaxConcurrency);
     }
 
-    public Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex) =>
-        QueryAsync(loincCode, componentLoincCode,
-            () => _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex));
+    public Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null) =>
+        QueryAsync(loincCode, componentLoincCode, threshold,
+            () => _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold));
 
-    public Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex) =>
-        QueryAsync(loincCode, componentLoincCode,
-            () => _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex));
+    public Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null) =>
+        QueryAsync(loincCode, componentLoincCode, threshold,
+            () => _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold));
+
+    public async Task<Result<BreakdownResult>> GetBreakdownByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex)
+    {
+        var buckets = BreakdownBuckets.ForAge(startAge, endAge, bucketSize, _maxBuckets);
+        if (!buckets.IsSuccess)
+            return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
+
+        return await RunBreakdownAsync(loincCode, componentLoincCode,
+            buckets.Value!.Select(b => b.Label).ToList(),
+            buckets.Value!.Select(b => (Func<Task<EncryptedStatisticsResult?>>)
+                (() => _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex))).ToList());
+    }
+
+    public async Task<Result<BreakdownResult>> GetBreakdownByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex)
+    {
+        var buckets = BreakdownBuckets.ForDate(startDate, endDate, bucketMonths, _maxBuckets);
+        if (!buckets.IsSuccess)
+            return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
+
+        return await RunBreakdownAsync(loincCode, componentLoincCode,
+            buckets.Value!.Select(b => b.Label).ToList(),
+            buckets.Value!.Select(b => (Func<Task<EncryptedStatisticsResult?>>)
+                (() => _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex))).ToList());
+    }
+
+    public Task<Result<HistogramResult>> GetHistogramByDateAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
+        HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount,
+            () => _heServerClient.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount));
+
+    public Task<Result<HistogramResult>> GetHistogramByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
+        HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount,
+            () => _heServerClient.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount));
 
     /// <summary>
     /// The common query flow: verify the codes, fetch the encrypted sums from the HE Server,
     /// decrypt and derive the statistics. HE Server connectivity problems come back as a
     /// failed result rather than an unhandled exception.
     /// </summary>
-    private async Task<Result<QueryResult>> QueryAsync(string loincCode, string? componentLoincCode, Func<Task<EncryptedStatisticsResult?>> fetch)
+    private async Task<Result<QueryResult>> QueryAsync(string loincCode, string? componentLoincCode, decimal? threshold, Func<Task<EncryptedStatisticsResult?>> fetch)
     {
         Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
         if (!verification.IsSuccess)
             return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
 
+        return await ExecuteAsync(verification.Value!, threshold, fetch);
+    }
+
+    /// <summary>Fetch + decrypt for one already-verified query (one bucket, in the breakdown case).</summary>
+    private async Task<Result<QueryResult>> ExecuteAsync(LoincCodeInfo codeInfo, decimal? threshold, Func<Task<EncryptedStatisticsResult?>> fetch)
+    {
         EncryptedStatisticsResult? result;
         try
         {
@@ -50,7 +92,80 @@ internal class ClientStatisticsService : IStatisticsService
             return Result<QueryResult>.Fail($"HE Server request failed: {ex.Message}");
         }
 
-        return DecryptToQueryResult(verification.Value!, result);
+        return DecryptToQueryResult(codeInfo, threshold, result);
+    }
+
+    /// <summary>
+    /// Runs one average query per bucket (each an independent HE query) and assembles the
+    /// breakdown. The LOINC code is verified once up front, not per bucket.
+    /// </summary>
+    private async Task<Result<BreakdownResult>> RunBreakdownAsync(
+        string loincCode,
+        string? componentLoincCode,
+        IReadOnlyList<string> labels,
+        IReadOnlyList<Func<Task<EncryptedStatisticsResult?>>> fetches)
+    {
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
+        if (!verification.IsSuccess)
+            return Result<BreakdownResult>.Fail(verification.Error!, verification.Kind);
+
+        var factories = fetches
+            .Select(f => (Func<Task<Result<QueryResult>>>)(() => ExecuteAsync(verification.Value!, threshold: null, f)))
+            .ToList();
+        Result<QueryResult>[] results = await Concurrency.RunAsync(factories, _maxConcurrency);
+        return Breakdown.Build(verification.Value!.DisplayName, verification.Value!.Unit, labels, results);
+    }
+
+    /// <summary>
+    /// The frequency-histogram flow: one encrypted round trip. The single returned ciphertext
+    /// uses slots as bins (slot b = patient count for bin b, decided in plaintext at the proxies),
+    /// so unlike the moment vectors the slots are read individually, not summed. Counts are sums
+    /// of exact 1.0s, so CKKS noise rounds away to whole numbers.
+    /// </summary>
+    private async Task<Result<HistogramResult>> HistogramAsync(
+        string loincCode, string? componentLoincCode,
+        decimal binStart, decimal binWidth, int binCount,
+        Func<Task<byte[]?>> fetch)
+    {
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
+        if (!verification.IsSuccess)
+            return Result<HistogramResult>.Fail(verification.Error!, verification.Kind);
+
+        byte[]? encrypted;
+        try
+        {
+            encrypted = await fetch();
+        }
+        catch (Exception ex)
+        {
+            return Result<HistogramResult>.Fail($"HE Server request failed: {ex.Message}");
+        }
+
+        if (encrypted is null)
+            return Result<HistogramResult>.Fail("No data returned from HE Server.");
+
+        try
+        {
+            List<double> slots = DecryptSlots(encrypted);
+
+            int[] counts = new int[binCount];
+            for (int b = 0; b < binCount; b++)
+                counts[b] = (int)Math.Round(slots[b]);
+            int below = (int)Math.Round(slots[binCount]);
+            int above = (int)Math.Round(slots[binCount + 1]);
+
+            // No hospital had any observations for this code (all slots decrypt to ~0).
+            if (counts.Sum() + below + above == 0)
+                return Result<HistogramResult>.Fail($"No observations found for '{verification.Value!.DisplayName}'.", ErrorKind.NotFound);
+
+            return HistogramBins.Assemble(
+                verification.Value!.DisplayName, verification.Value!.Unit,
+                binStart, binWidth, binCount, counts, below, above);
+        }
+        catch (Exception ex)
+        {
+            return Result<HistogramResult>.Fail($"Decryption failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -71,20 +186,21 @@ internal class ClientStatisticsService : IStatisticsService
         return await _loincVerificationService.VerifyAsync(componentLoincCode);
     }
 
-    private Result<QueryResult> DecryptToQueryResult(LoincCodeInfo codeInfo, EncryptedStatisticsResult? encrypted)
+    private Result<QueryResult> DecryptToQueryResult(LoincCodeInfo codeInfo, decimal? threshold, EncryptedStatisticsResult? encrypted)
     {
         if (encrypted is null)
             return Result<QueryResult>.Fail("No data returned from HE Server.");
 
         try
         {
-            var (average, stdDev, count) = Decrypt(encrypted);
+            MomentSums m = Decrypt(encrypted);
 
             // No hospital had any observations for this code (e.g. all returned 404/empty vectors).
-            if (count < 0.5)
+            if (m.N < 0.5)
                 return Result<QueryResult>.Fail($"No observations found for '{codeInfo.DisplayName}'.", ErrorKind.NotFound);
 
-            return Result<QueryResult>.Ok(new QueryResult(codeInfo.DisplayName, average, stdDev, codeInfo.Unit));
+            QueryResult result = StatisticsMath.BuildStatistics(codeInfo, threshold, m);
+            return result;
         }
         catch (Exception ex)
         {
@@ -93,37 +209,50 @@ internal class ClientStatisticsService : IStatisticsService
     }
 
     /// <summary>
-    /// Decrypts an <see cref="EncryptedStatisticsResult"/> and computes:
-    /// average = sum(values)/sum(ones), and
-    /// population standard deviation = sqrt(E[x²] − E[x]²) using the squares sum.
-    /// The variance is clamped at zero because CKKS is an approximate scheme and
-    /// noise can push a near-zero variance slightly negative.
-    /// The patient count is returned too, so callers can detect empty result sets
-    /// without decrypting the ones vector a second time.
+    /// Decrypts each summed vector to a single scalar (summing all slots — patients were packed with
+    /// wraparound at the proxy, so only the grand total is meaningful). The above-threshold sum is
+    /// present only when a prevalence threshold was requested.
     /// </summary>
-    /// <param name="encryptedResult">The encrypted values, ones and squares vectors returned by the HE Server.</param>
-    /// <returns>The decrypted average, standard deviation, and patient count.</returns>
-    private (double Average, double StdDev, double Count) Decrypt(EncryptedStatisticsResult encryptedResult)
+    private MomentSums Decrypt(EncryptedStatisticsResult r)
     {
         SEALContext context = _keyService.GetContext();
         using var decryptor = new Decryptor(context, _keyService.SecretKey);
         using var encoder = new CKKSEncoder(context);
 
-        double sum = DecryptAndSumVector(encryptedResult.ValuesSum, context, decryptor, encoder);
-        double count = DecryptAndSumVector(encryptedResult.OnesSum, context, decryptor, encoder);
-        double squaresSum = DecryptAndSumVector(encryptedResult.SquaresSum, context, decryptor, encoder);
+        double n = DecryptAndSumVector(r.OnesSum, context, decryptor, encoder);
+        double sx = DecryptAndSumVector(r.ValuesSum, context, decryptor, encoder);
+        double sx2 = DecryptAndSumVector(r.SquaresSum, context, decryptor, encoder);
+        double sx3 = DecryptAndSumVector(r.CubesSum, context, decryptor, encoder);
+        double sx4 = DecryptAndSumVector(r.QuartsSum, context, decryptor, encoder);
+        double? above = r.AboveThresholdSum is null
+            ? null
+            : DecryptAndSumVector(r.AboveThresholdSum, context, decryptor, encoder);
 
-        double average = sum / count;
-        double variance = Math.Max(0.0, squaresSum / count - average * average);
-        return (average, Math.Sqrt(variance), count);
+        return new MomentSums(n, sx, sx2, sx3, sx4, above);
     }
 
     /// <summary>
-    /// Decrypts a CKKS ciphertext vector and sums all slots to produce a single scalar value.
-    /// Slots hold per-slot accumulations (patients are packed with wraparound at the proxy),
-    /// so only this total is meaningful; unused slots are zero and contribute nothing.
+    /// Sums all slots of a decrypted vector to a single scalar. Slots hold per-slot
+    /// accumulations (patients are packed with wraparound at the proxy), so only this
+    /// total is meaningful; unused slots are zero and contribute nothing.
     /// </summary>
-    private static double DecryptAndSumVector(byte[] encryptedBytes, SEALContext context, Decryptor decryptor, CKKSEncoder encoder)
+    private static double DecryptAndSumVector(byte[] encryptedBytes, SEALContext context, Decryptor decryptor, CKKSEncoder encoder) =>
+        DecryptVector(encryptedBytes, context, decryptor, encoder).Sum();
+
+    /// <summary>
+    /// Decrypts a CKKS ciphertext and returns the raw slot values. Used by the frequency
+    /// histogram, where each slot is a separate per-bin count rather than a share of one total.
+    /// </summary>
+    private List<double> DecryptSlots(byte[] encryptedBytes)
+    {
+        SEALContext context = _keyService.GetContext();
+        using var decryptor = new Decryptor(context, _keyService.SecretKey);
+        using var encoder = new CKKSEncoder(context);
+
+        return DecryptVector(encryptedBytes, context, decryptor, encoder);
+    }
+
+    private static List<double> DecryptVector(byte[] encryptedBytes, SEALContext context, Decryptor decryptor, CKKSEncoder encoder)
     {
         using var ciphertext = new Ciphertext();
         ciphertext.Load(context, new MemoryStream(encryptedBytes));
@@ -133,7 +262,6 @@ internal class ClientStatisticsService : IStatisticsService
 
         var result = new List<double>();
         encoder.Decode(plaintext, result);
-
-        return result.Sum();
+        return result;
     }
 }

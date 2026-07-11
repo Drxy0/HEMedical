@@ -4,7 +4,7 @@ import { ChartConfiguration, ChartData, Plugin } from 'chart.js';
 import { QueryResult } from '../../shared/models/clinical-measurement.model';
 
 /** Custom per-dataset properties consumed by the error-bar plugin. */
-interface SigmaDatasetProps {
+export interface SigmaDatasetProps {
   stdDevs?: (number | null)[];
   whiskerColor?: string;
 }
@@ -12,8 +12,9 @@ interface SigmaDatasetProps {
 /**
  * Draws ±1σ error-bar whiskers centered on each bar:
  * a vertical line from (value − σ) to (value + σ) with horizontal caps.
+ * Shared by the summary chart and the breakdown chart.
  */
-const errorBarsPlugin: Plugin<'bar'> = {
+export const errorBarsPlugin: Plugin<'bar'> = {
   id: 'errorBars',
   afterDatasetsDraw(chart) {
     const yScale = chart.scales['y'];

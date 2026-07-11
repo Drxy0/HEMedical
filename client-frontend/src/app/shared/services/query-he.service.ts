@@ -1,7 +1,12 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { PatientSex, QueryResult } from '../models/clinical-measurement.model';
+import {
+  BreakdownResult,
+  HistogramResult,
+  PatientSex,
+  QueryResult,
+} from '../models/clinical-measurement.model';
 
 @Injectable({ providedIn: 'root' })
 export class QueryHEService {
@@ -13,12 +18,14 @@ export class QueryHEService {
     startDate?: string,
     endDate?: string,
     sex?: PatientSex,
+    threshold?: number,
   ): Observable<QueryResult> {
     let params = new HttpParams().set('loincCode', loincCode);
     if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
     if (startDate) params = params.set('startDate', startDate);
     if (endDate) params = params.set('endDate', endDate);
     if (sex) params = params.set('sex', sex);
+    if (threshold != null) params = params.set('threshold', threshold);
     return this.http.get<QueryResult>('/api/statistics/by-date', { params });
   }
 
@@ -28,6 +35,7 @@ export class QueryHEService {
     startAge: number,
     endAge: number,
     sex?: PatientSex,
+    threshold?: number,
   ): Observable<QueryResult> {
     let params = new HttpParams()
       .set('loincCode', loincCode)
@@ -35,6 +43,86 @@ export class QueryHEService {
       .set('endAge', endAge);
     if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
     if (sex) params = params.set('sex', sex);
+    if (threshold != null) params = params.set('threshold', threshold);
     return this.http.get<QueryResult>('/api/statistics/by-age', { params });
+  }
+
+  getBreakdownByAge(
+    loincCode: string,
+    componentLoincCode: string | undefined,
+    startAge: number,
+    endAge: number,
+    bucketSize: number,
+    sex?: PatientSex,
+  ): Observable<BreakdownResult> {
+    let params = new HttpParams()
+      .set('loincCode', loincCode)
+      .set('startAge', startAge)
+      .set('endAge', endAge)
+      .set('bucketSize', bucketSize);
+    if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
+    if (sex) params = params.set('sex', sex);
+    return this.http.get<BreakdownResult>('/api/statistics/breakdown-by-age', { params });
+  }
+
+  getBreakdownByDate(
+    loincCode: string,
+    componentLoincCode: string | undefined,
+    startDate: string,
+    endDate: string,
+    bucketMonths: number,
+    sex?: PatientSex,
+  ): Observable<BreakdownResult> {
+    let params = new HttpParams()
+      .set('loincCode', loincCode)
+      .set('startDate', startDate)
+      .set('endDate', endDate)
+      .set('bucketMonths', bucketMonths);
+    if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
+    if (sex) params = params.set('sex', sex);
+    return this.http.get<BreakdownResult>('/api/statistics/breakdown-by-date', { params });
+  }
+  getHistogramByDateRange(
+    loincCode: string,
+    componentLoincCode: string | undefined,
+    startDate: string | undefined,
+    endDate: string | undefined,
+    sex: PatientSex | undefined,
+    binStart: number,
+    binWidth: number,
+    binCount: number,
+  ): Observable<HistogramResult> {
+    let params = new HttpParams()
+      .set('loincCode', loincCode)
+      .set('binStart', binStart)
+      .set('binWidth', binWidth)
+      .set('binCount', binCount);
+    if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (sex) params = params.set('sex', sex);
+    return this.http.get<HistogramResult>('/api/statistics/histogram-by-date', { params });
+  }
+
+  getHistogramByAgeRange(
+    loincCode: string,
+    componentLoincCode: string | undefined,
+    startAge: number,
+    endAge: number,
+    sex: PatientSex | undefined,
+    binStart: number,
+    binWidth: number,
+    binCount: number,
+  ): Observable<HistogramResult> {
+    let params = new HttpParams()
+      .set('loincCode', loincCode)
+      .set('startAge', startAge)
+      .set('endAge', endAge)
+      .set('binStart', binStart)
+      .set('binWidth', binWidth)
+      .set('binCount', binCount);
+    if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
+    if (sex) params = params.set('sex', sex);
+    return this.http.get<HistogramResult>('/api/statistics/histogram-by-age', { params });
   }
 }

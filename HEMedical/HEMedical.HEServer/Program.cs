@@ -12,8 +12,10 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.Configure<HospitalProxySettings>(builder.Configuration.GetSection("HospitalsProxies"));
+builder.Services.AddSingleton<HEKeyRegistry>();
+builder.Services.AddSingleton<HospitalRegistry>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
-// Named client: StatisticsService creates one HospitalProxyClient per configured proxy URL.
+// Named client: StatisticsService creates one HospitalProxyClient per hospital URL.
 builder.Services.AddHttpClient(nameof(IHospitalProxyClient));
 
 var app = builder.Build();

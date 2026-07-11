@@ -23,8 +23,7 @@ public class ObservationController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Search(
         [FromQuery] string code,
-        [FromQuery(Name = "date")] string[]? date,
-        [FromQuery(Name = "_count")] int count = 1000)
+        [FromQuery(Name = "date")] string[]? date)
     {
         var type = _fhirBuilder.ResolveType(code);
 
@@ -46,14 +45,19 @@ public class ObservationController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] FhirObservationInput input)
     {
-        var result = await _observationService.CreateAsync(input);
+        string? loincCode = input.Code?.Coding?.FirstOrDefault()?.Code;
+        if (loincCode is null)
+            return BadRequest("Missing code.coding");
+
+        var type = _fhirBuilder.ResolveType(loincCode);
+        if (type is null)
+            return BadRequest($"Unsupported LOINC code: {loincCode}");
+
+        var result = await _observationService.CreateAsync(type.Value, input);
 
         if (!result.IsSuccess)
             return BadRequest(result.Error);
 
-        string loincCode = input.Code?.Coding?.FirstOrDefault()?.Code ?? "";
-        var type = _fhirBuilder.ResolveType(loincCode) ?? throw new InvalidOperationException($"Unresolvable type for code: {loincCode}");
-
-        return Created("/Observation", _fhirBuilder.BuildSingleResource(type, result.Value!));
+        return Created("/Observation", _fhirBuilder.BuildSingleResource(type.Value, result.Value!));
     }
 }

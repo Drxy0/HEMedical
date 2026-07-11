@@ -1,5 +1,6 @@
 ﻿using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared;
+using HEMedical.Shared.Security;
 using Microsoft.Research.SEAL;
 
 namespace HEMedical.Client.Services;
@@ -12,6 +13,8 @@ public class HEKeyService : IHEKeyService
     private readonly SEALContext _context;
     public PublicKey PublicKey { get; private set; } = null!;
     public SecretKey SecretKey { get; private set; } = null!;
+    public byte[] PublicKeyBytes { get; private set; } = null!;
+    public string PublicKeyFingerprint { get; private set; } = null!;
 
     public HEKeyService()
     {
@@ -29,6 +32,11 @@ public class HEKeyService : IHEKeyService
         {
             GenerateAndSaveKeys();
         }
+
+        using var stream = new MemoryStream();
+        PublicKey.Save(stream);
+        PublicKeyBytes = stream.ToArray();
+        PublicKeyFingerprint = KeyFingerprint.Compute(PublicKeyBytes);
     }
 
     private void GenerateAndSaveKeys()

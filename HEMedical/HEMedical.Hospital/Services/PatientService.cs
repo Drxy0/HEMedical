@@ -34,6 +34,6 @@ public class PatientService : IPatientService
         _context.Patients.Add(patient);
         await _context.SaveChangesAsync();
 
-        return Result<Patient>.Ok(patient);
+        return patient;
     }
 }

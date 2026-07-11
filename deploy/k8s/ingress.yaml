@@ -1,0 +1,30 @@
+# Single public entry point. Browser hits one host:
+#   /api/*  -> Client API      (the only publicly reachable backend)
+#   /*      -> Angular frontend
+# Same-origin, so the frontend's relative /api calls just work — no CORS, no proxy.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hemedical
+  namespace: hemedical
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: client
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

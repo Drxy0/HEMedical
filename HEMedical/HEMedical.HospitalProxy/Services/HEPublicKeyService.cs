@@ -1,15 +1,17 @@
-﻿using HEMedical.HospitalProxy.Services.Interfaces;
+using HEMedical.HospitalProxy.Services.Interfaces;
 using HEMedical.Shared;
+using HEMedical.Shared.Security;
 using Microsoft.Research.SEAL;
 
 namespace HEMedical.HospitalProxy.Services;
 
 public class HEPublicKeyService : IHEPublicKeyService
 {
-    private const string PublicKeyPath = "public.key";
+    private sealed record KeySnapshot(PublicKey PublicKey, string Fingerprint);
 
     private readonly SEALContext _context;
-    public PublicKey PublicKey { get; private set; } = null!;
+    private readonly object _updateLock = new();
+    private volatile KeySnapshot? _current;
 
     public HEPublicKeyService()
     {
@@ -18,18 +20,37 @@ public class HEPublicKeyService : IHEPublicKeyService
         parms.CoeffModulus = CoeffModulus.Create(CKKSParameters.PolyModulusDegree, CKKSParameters.CoeffModulusBits);
 
         _context = new SEALContext(parms);
-
-        PublicKey = new();
-        try
-        {
-            using FileStream stream = File.OpenRead(PublicKeyPath);
-            PublicKey.Load(_context, stream);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Failed to load HE public key from '{PublicKeyPath}'. Ensure the Client has generated keys and the file was copied to the proxy.", ex);
-        }
     }
 
     public SEALContext GetContext() => _context;
+
+    public PublicKey? PublicKey => _current?.PublicKey;
+
+    public string? Fingerprint => _current?.Fingerprint;
+
+    public bool HasKey => _current is not null;
+
+    public bool TryUpdateKey(byte[] publicKeyBytes, string fingerprint)
+    {
+        // A mismatched fingerprint means a corrupted or tampered key — refuse it and
+        // keep whatever we hold; the caller logs and the next heartbeat retries.
+        string computed = KeyFingerprint.Compute(publicKeyBytes);
+        if (!string.Equals(computed, fingerprint, StringComparison.Ordinal))
+            return false;
+
+        lock (_updateLock)
+        {
+            if (_current?.Fingerprint == fingerprint)
+                return true;
+
+            var publicKey = new PublicKey();
+            publicKey.Load(_context, new MemoryStream(publicKeyBytes));
+
+            // Swap the immutable snapshot; the old PublicKey is intentionally not disposed
+            // eagerly because in-flight encryptions may still hold it — the finalizer
+            // reclaims the native handle. Rotations are rare, so the cost is negligible.
+            _current = new KeySnapshot(publicKey, fingerprint);
+        }
+        return true;
+    }
 }
