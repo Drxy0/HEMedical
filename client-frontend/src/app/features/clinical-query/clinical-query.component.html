@@ -365,9 +365,7 @@
                       {{ he.value | number: '1.2-2' }} ± {{ he.stdDev | number: '1.2-2' }}
                       {{ he.unitOfMeasurement }}
                       <span class="result-detail">
-                        n = {{ he.count }} · sum {{ he.sum | number: '1.0-2' }} · skew
-                        {{ he.skewness | number: '1.2-2' }} · kurtosis
-                        {{ he.kurtosis | number: '1.2-2' }}
+                        n = {{ he.count }} · sum {{ he.sum | number: '1.0-2' }}
                         @if (he.prevalenceAboveThreshold !== null) {
                           · {{ he.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
                           {{ he.threshold }} ({{ he.countAboveThreshold }})
@@ -385,9 +383,7 @@
                       {{ pt.value | number: '1.2-2' }} ± {{ pt.stdDev | number: '1.2-2' }}
                       {{ pt.unitOfMeasurement }}
                       <span class="result-detail">
-                        n = {{ pt.count }} · sum {{ pt.sum | number: '1.0-2' }} · skew
-                        {{ pt.skewness | number: '1.2-2' }} · kurtosis
-                        {{ pt.kurtosis | number: '1.2-2' }}
+                        n = {{ pt.count }} · sum {{ pt.sum | number: '1.0-2' }}
                         @if (pt.prevalenceAboveThreshold !== null) {
                           · {{ pt.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
                           {{ pt.threshold }} ({{ pt.countAboveThreshold }})

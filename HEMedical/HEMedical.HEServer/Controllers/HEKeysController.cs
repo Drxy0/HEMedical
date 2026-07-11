@@ -6,18 +6,15 @@ namespace HEMedical.HEServer.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class HEKeysController(HEKeyRegistry _keys, ILogger<HEKeysController> _logger) : ControllerBase
+public class HEKeysController(HEKeyRegistry _keyRegistry, ILogger<HEKeysController> _logger) : ControllerBase
 {
-    /// <summary>
-    /// The Client publishes (and periodically re-publishes) its CKKS public key here.
-    /// The fingerprint is validated against the key bytes before the key is accepted.
-    /// </summary>
+    /// <summary>Stores the public key sent by the Client, after checking its fingerprint.</summary>
     [HttpPut]
     public IActionResult Publish([FromBody] HEPublicKeyDto key)
     {
-        bool changed = _keys.Current?.Fingerprint != key.Fingerprint;
+        bool changed = _keyRegistry.Current?.Fingerprint != key.Fingerprint;
 
-        if (!_keys.TryUpdate(key, out string? error))
+        if (!_keyRegistry.TryUpdate(key, out string? error))
             return BadRequest(error);
 
         if (changed)
@@ -26,8 +23,14 @@ public class HEKeysController(HEKeyRegistry _keys, ILogger<HEKeysController> _lo
         return NoContent();
     }
 
-    /// <summary>The currently registered public key, for proxies that need a refresh.</summary>
+    /// <summary>Returns the stored public key, or 404 if none has been published yet.</summary>
     [HttpGet]
-    public IActionResult Get() =>
-        _keys.Current is { } key ? Ok(key) : NotFound();
+    public IActionResult Get()
+    {
+        HEPublicKeyDto? key = _keyRegistry.Current;
+        if (key is null)
+            return NotFound();
+
+        return Ok(key);
+    }
 }

@@ -4,17 +4,14 @@ namespace HEMedical.HospitalProxy.Services.Interfaces;
 
 /// <summary>
 /// Holds the CKKS public key received from the HE Server during registration.
-/// The key arrives over the network (no file on disk) and can be replaced at
-/// runtime if the Client rotates its key pair.
+/// The key arrives over the network and can be replaced at runtime.
 /// </summary>
 public interface IHEPublicKeyService
 {
     SEALContext GetContext();
 
-    /// <summary>Null until the first successful registration delivers a key.</summary>
     PublicKey? PublicKey { get; }
 
-    /// <summary>Fingerprint of the currently held key, or null when no key yet.</summary>
     string? Fingerprint { get; }
 
     bool HasKey { get; }

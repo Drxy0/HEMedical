@@ -12,8 +12,6 @@ public record QueryResult(
     string UnitOfMeasurement,
     double Sum = 0,
     int Count = 0,
-    double Skewness = 0,
-    double Kurtosis = 0,
     double? Threshold = null,
     int? CountAboveThreshold = null,
     double? PrevalenceAboveThreshold = null);

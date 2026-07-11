@@ -4,7 +4,6 @@ using HEMedical.Shared.Models;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.HospitalProxy.Controllers;
 
@@ -41,7 +40,7 @@ public class PlaintextStatisticsController : ControllerBase
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
     {
         if (CheckEnabled() is { } disabled)
             return disabled;
@@ -56,10 +55,8 @@ public class PlaintextStatisticsController : ControllerBase
     /// arithmetic as the encrypted path and returns the per-bin counts in the clear.
     /// </summary>
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, [Range(1, 512)] int binCount)
+    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
     {
-        if (binWidth <= 0)
-            return BadRequest("binWidth must be positive.");
         if (CheckEnabled() is { } disabled)
             return disabled;
 
@@ -73,10 +70,8 @@ public class PlaintextStatisticsController : ControllerBase
     /// arithmetic as the encrypted path and returns the per-bin counts in the clear.
     /// </summary>
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex, decimal binStart, decimal binWidth, [Range(1, 512)] int binCount)
+    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
     {
-        if (binWidth <= 0)
-            return BadRequest("binWidth must be positive.");
         if (CheckEnabled() is { } disabled)
             return disabled;
 

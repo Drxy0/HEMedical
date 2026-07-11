@@ -105,8 +105,8 @@ public class StatisticsService : IStatisticsService
     /// <summary>
     /// Aggregates encrypted responses from multiple hospitals by homomorphically summing
     /// each vector slot-by-slot across all hospitals. The required moment vectors (values, ones,
-    /// squares, cubes, quarts) are always aggregated; the optional above-threshold vector is
-    /// aggregated only when the hospitals produced it (i.e. a prevalence threshold was requested).
+    /// squares) are always aggregated; the optional above-threshold vector is aggregated only
+    /// when the hospitals produced it (i.e. a prevalence threshold was requested).
     /// </summary>
     /// <param name="responses">Encrypted responses from each hospital.</param>
     /// <returns>The aggregated response <see cref="EncryptedStatisticsResult"/>.</returns>
@@ -120,11 +120,9 @@ public class StatisticsService : IStatisticsService
         byte[] values = AggregateVector(responses, evaluator, r => r.ValuesSum)!;
         byte[] ones = AggregateVector(responses, evaluator, r => r.OnesSum)!;
         byte[] squares = AggregateVector(responses, evaluator, r => r.SquaresSum)!;
-        byte[] cubes = AggregateVector(responses, evaluator, r => r.CubesSum)!;
-        byte[] quarts = AggregateVector(responses, evaluator, r => r.QuartsSum)!;
         byte[]? above = AggregateVector(responses, evaluator, r => r.AboveThresholdSum);
 
-        return new EncryptedStatisticsResult(values, ones, squares, cubes, quarts, above);
+        return new EncryptedStatisticsResult(values, ones, squares, above);
     }
 
     /// <summary>

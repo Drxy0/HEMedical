@@ -1,7 +1,6 @@
 using HEMedical.PlainServer.Services.Interfaces;
 using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.PlainServer.Controllers;
 
@@ -22,21 +21,21 @@ public class QueryController(IStatisticsService _statService) : ControllerBase
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
     {
         var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, [Range(1, 512)] int binCount)
+    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
     {
         var result = await _statService.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
     }
 
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex, decimal binStart, decimal binWidth, [Range(1, 512)] int binCount)
+    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
     {
         var result = await _statService.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount);
         return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);

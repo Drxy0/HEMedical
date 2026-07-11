@@ -17,7 +17,6 @@ public class HEServerRegistrationClient : IHEServerRegistrationClient
         _keyService = keyService;
         _logger = logger;
 
-        // ProxyPublicUrl is validated at startup in Program.cs, so it is assumed present here.
         string name = configuration["HospitalName"] ?? "Unnamed Hospital";
         _registration = new HospitalRegistrationRequest(name, configuration["ProxyPublicUrl"]!);
     }
@@ -31,7 +30,7 @@ public class HEServerRegistrationClient : IHEServerRegistrationClient
 
             var body = await response.Content.ReadFromJsonAsync<HospitalRegistrationResponse>(cancellationToken);
 
-            // Adopt the delivered key if it differs from what we hold.
+            // Adopt the delivered key if it differs from what is currently held.
             if (body?.Key is { } key && key.Fingerprint != _keyService.Fingerprint)
             {
                 if (_keyService.TryUpdateKey(Convert.FromBase64String(key.PublicKeyBase64), key.Fingerprint))

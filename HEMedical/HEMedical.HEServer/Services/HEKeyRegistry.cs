@@ -3,22 +3,24 @@ using HEMedical.Shared.Security;
 
 namespace HEMedical.HEServer.Services;
 
-/// <summary>
-/// Holds the CKKS public key the Client has published. The HE Server never uses
-/// the key itself (it only adds ciphertexts); it acts as the distribution point
-/// that hands the key to hospital proxies when they register.
-/// In-memory: after a restart the Client's periodic re-publish restores it.
-/// </summary>
+/// <summary>Stores the Client's public key and hands it to hospital proxies when they register.</summary>
 public class HEKeyRegistry
 {
-    private volatile HEPublicKeyDto? _current;
+    // The registry is a shared singleton, so the lock guards this key against concurrent reads and writes.
+    private readonly object _lock = new();
+    private HEPublicKeyDto? _current;
 
-    public HEPublicKeyDto? Current => _current;
+    public HEPublicKeyDto? Current
+    {
+        get
+        {
+            lock (_lock)
+                return _current;
+        }
+    }
 
     /// <summary>
-    /// Validates that the payload is well-formed base64 and that the fingerprint
-    /// matches the bytes, then stores it. Rejecting mismatched fingerprints keeps a
-    /// corrupted or tampered upload from being distributed to every hospital.
+    /// Validates payload and fingeprint, then stores it, otherwise fails.
     /// </summary>
     public bool TryUpdate(HEPublicKeyDto key, out string? error)
     {
@@ -40,7 +42,9 @@ public class HEKeyRegistry
             return false;
         }
 
-        _current = key;
+        lock (_lock)
+            _current = key;
+
         error = null;
         return true;
     }

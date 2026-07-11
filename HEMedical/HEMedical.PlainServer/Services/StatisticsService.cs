@@ -91,9 +91,9 @@ public class StatisticsService : IStatisticsService
     /// <summary>
     /// Aggregates plaintext responses from multiple hospitals by summing each total
     /// across all hospitals — the plain-number mirror of the HE Server's slot-wise
-    /// ciphertext addition. The required sums (values, ones, squares, cubes, quarts)
-    /// are always aggregated; the optional above-threshold sum is aggregated only when
-    /// the hospitals produced it (i.e. a prevalence threshold was requested).
+    /// ciphertext addition. The required sums (values, ones, squares) are always
+    /// aggregated; the optional above-threshold sum is aggregated only when the
+    /// hospitals produced it (i.e. a prevalence threshold was requested).
     /// </summary>
     /// <param name="responses">Plaintext responses from each hospital.</param>
     /// <returns>The aggregated response <see cref="PlaintextStatisticsResult"/>.</returns>
@@ -105,11 +105,9 @@ public class StatisticsService : IStatisticsService
         double values = AggregateScalar(responses, r => r.ValuesSum)!.Value;
         double ones = AggregateScalar(responses, r => r.OnesSum)!.Value;
         double squares = AggregateScalar(responses, r => r.SquaresSum)!.Value;
-        double cubes = AggregateScalar(responses, r => r.CubesSum)!.Value;
-        double quarts = AggregateScalar(responses, r => r.QuartsSum)!.Value;
         double? above = AggregateScalar(responses, r => r.AboveThresholdSum);
 
-        return new PlaintextStatisticsResult(values, ones, squares, cubes, quarts, above);
+        return new PlaintextStatisticsResult(values, ones, squares, above);
     }
 
     /// <summary>

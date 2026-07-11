@@ -19,7 +19,7 @@ public class EncryptionService : IEncryptionService
         // Unreachable in practice: the controllers gate every request behind the key-sync
         // check (503/409) before encrypting. Degenerate empty vectors, never a throw.
         if (_keyService.PublicKey is not { } publicKey)
-            return new EncryptedStatisticsResult([], [], [], [], [], null);
+            return new EncryptedStatisticsResult([], [], [], null);
 
         SEALContext context = _keyService.GetContext();
         using var encryptor = new Encryptor(context, publicKey);
@@ -27,13 +27,11 @@ public class EncryptionService : IEncryptionService
 
         ulong slotCount = encoder.SlotCount;
 
-        // Powers 1..4 give the client Σx, Σx², Σx³, Σx⁴, from which it derives the mean,
-        // standard deviation, skewness and kurtosis. The ones vector gives the count.
+        // Powers 1 and 2 give the client Σx and Σx², from which it derives the mean and
+        // standard deviation. The ones vector gives the count.
         byte[] encryptedValues = EncryptVector(BuildPowerVector(values, slotCount, 1), encoder, encryptor);
         byte[] encryptedOnes = EncryptVector(BuildOnesVector(values.Count, slotCount), encoder, encryptor);
         byte[] encryptedSquares = EncryptVector(BuildPowerVector(values, slotCount, 2), encoder, encryptor);
-        byte[] encryptedCubes = EncryptVector(BuildPowerVector(values, slotCount, 3), encoder, encryptor);
-        byte[] encryptedQuarts = EncryptVector(BuildPowerVector(values, slotCount, 4), encoder, encryptor);
 
         // Prevalence: only when a threshold was requested. The comparison is done here, in
         // plaintext, producing a 0/1 per patient; the encrypted side only sums the flags.
@@ -42,11 +40,17 @@ public class EncryptionService : IEncryptionService
             : null;
 
         return new EncryptedStatisticsResult(
-            encryptedValues, encryptedOnes, encryptedSquares, encryptedCubes, encryptedQuarts, encryptedAbove);
+            encryptedValues, encryptedOnes, encryptedSquares, encryptedAbove);
     }
 
     public byte[] EncryptHistogram(List<decimal> values, decimal binStart, decimal binWidth, int binCount)
     {
+        // Safety net for bad bins (the Client validates these before any request gets here):
+        // a non-positive width would divide by zero and a non-positive count would size the
+        // vector negatively. Degrade to an empty result rather than crash.
+        if (binWidth <= 0 || binCount < 1)
+            return new byte[0];
+
         if (_keyService.PublicKey is not { } publicKey)
             return new byte[0];
 

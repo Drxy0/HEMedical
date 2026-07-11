@@ -27,10 +27,11 @@ internal static class BreakdownBuckets
     /// </summary>
     public static Result<IReadOnlyList<AgeBucket>> ForAge(int startAge, int endAge, int bucketSize, int maxBuckets)
     {
+        string? ageError = QueryValidation.AgeRange(startAge, endAge);
+        if (ageError is not null)
+            return Result<IReadOnlyList<AgeBucket>>.Fail(ageError, ErrorKind.InvalidInput);
         if (bucketSize <= 0)
             return Result<IReadOnlyList<AgeBucket>>.Fail("Bucket size must be a positive number.", ErrorKind.InvalidInput);
-        if (endAge < startAge)
-            return Result<IReadOnlyList<AgeBucket>>.Fail("End age must not be less than start age.", ErrorKind.InvalidInput);
 
         var buckets = new List<AgeBucket>();
         for (int lo = startAge; lo <= endAge; lo += bucketSize)

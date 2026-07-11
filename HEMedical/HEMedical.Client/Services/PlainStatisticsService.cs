@@ -34,9 +34,15 @@ internal class PlainStatisticsService : IPlainStatisticsService
         QueryAsync(loincCode, componentLoincCode, threshold,
             () => _plainServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold));
 
-    public Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null) =>
-        QueryAsync(loincCode, componentLoincCode, threshold,
+    public async Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
+    {
+        string? error = QueryValidation.AgeRange(startAge, endAge);
+        if (error is not null)
+            return Result<QueryResult>.Fail(error, ErrorKind.InvalidInput);
+
+        return await QueryAsync(loincCode, componentLoincCode, threshold,
             () => _plainServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold));
+    }
 
     public async Task<Result<BreakdownResult>> GetBreakdownByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex)
     {
@@ -66,9 +72,15 @@ internal class PlainStatisticsService : IPlainStatisticsService
         HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount,
             () => _plainServerClient.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount));
 
-    public Task<Result<HistogramResult>> GetHistogramByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
-        HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount,
+    public async Task<Result<HistogramResult>> GetHistogramByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    {
+        string? error = QueryValidation.AgeRange(startAge, endAge);
+        if (error is not null)
+            return Result<HistogramResult>.Fail(error, ErrorKind.InvalidInput);
+
+        return await HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount,
             () => _plainServerClient.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount));
+    }
 
     /// <summary>
     /// The common query flow: verify the codes, fetch the plain sums from the PlainServer,
@@ -131,6 +143,10 @@ internal class PlainStatisticsService : IPlainStatisticsService
         decimal binStart, decimal binWidth, int binCount,
         Func<Task<double[]?>> fetch)
     {
+        string? binError = QueryValidation.Bins(binWidth, binCount);
+        if (binError is not null)
+            return Result<HistogramResult>.Fail(binError, ErrorKind.InvalidInput);
+
         Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
         if (!verification.IsSuccess)
             return Result<HistogramResult>.Fail(verification.Error!, verification.Kind);
@@ -190,7 +206,7 @@ internal class PlainStatisticsService : IPlainStatisticsService
 
         // The plain sums map one-to-one onto the totals the encrypted path recovers by
         // decrypting its moment vectors — from here on both paths run the same code.
-        MomentSums m = new(plain.OnesSum, plain.ValuesSum, plain.SquaresSum, plain.CubesSum, plain.QuartsSum, plain.AboveThresholdSum);
+        MomentSums m = new(plain.OnesSum, plain.ValuesSum, plain.SquaresSum, plain.AboveThresholdSum);
 
         // No hospital had any observations for this code (e.g. all returned empty sums).
         if (m.N < 0.5)

@@ -15,13 +15,11 @@ public class PlaintextStatisticsService : IPlaintextStatisticsService
 {
     public PlaintextStatisticsResult Compute(List<decimal> values, decimal? threshold = null)
     {
-        // Powers 1..4 give the client Σx, Σx², Σx³, Σx⁴, from which it derives the mean,
-        // standard deviation, skewness and kurtosis. The count is Σ1.
+        // Powers 1 and 2 give the client Σx and Σx², from which it derives the mean and
+        // standard deviation. The count is Σ1.
         double valuesSum = BuildPowerSum(values, 1);
         double onesSum = values.Count;
         double squaresSum = BuildPowerSum(values, 2);
-        double cubesSum = BuildPowerSum(values, 3);
-        double quartsSum = BuildPowerSum(values, 4);
 
         // Prevalence: only when a threshold was requested. The same plaintext comparison
         // the encrypted path performs, producing the same 0/1-per-patient total.
@@ -30,11 +28,16 @@ public class PlaintextStatisticsService : IPlaintextStatisticsService
             : null;
 
         return new PlaintextStatisticsResult(
-            valuesSum, onesSum, squaresSum, cubesSum, quartsSum, aboveSum);
+            valuesSum, onesSum, squaresSum, aboveSum);
     }
 
     public double[] ComputeHistogram(List<decimal> values, decimal binStart, decimal binWidth, int binCount)
     {
+        // Safety net for bad bins (the Client validates these first): a non-positive width
+        // divides by zero and a non-positive count sizes the array negatively. Degrade to empty.
+        if (binWidth <= 0 || binCount < 1)
+            return [];
+
         return BuildBinCounts(values, binStart, binWidth, binCount);
     }
 

@@ -63,8 +63,6 @@ export interface QueryResult {
   unitOfMeasurement: string;
   sum: number;
   count: number;
-  skewness: number;
-  kurtosis: number;
   threshold: number | null;
   countAboveThreshold: number | null;
   prevalenceAboveThreshold: number | null;

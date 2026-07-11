@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace HEMedical.Shared.Security;
 
 /// <summary>
-/// Computes the canonical fingerprint of a serialized CKKS key.
+/// Computes the fingerprint of a serialized CKKS key.
 /// Fingerprints let every party cheaply verify it holds the same key as the
 /// Client without shipping the full (~100 KB) key on every request.
 /// </summary>

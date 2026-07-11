@@ -4,7 +4,6 @@ using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
 
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;
 
 namespace HEMedical.HospitalProxy.Controllers;
 
@@ -35,7 +34,7 @@ public class StatisticsController : ControllerBase
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
     {
         if (await CheckKeyAsync() is { } keyProblem)
             return keyProblem;
@@ -50,10 +49,8 @@ public class StatisticsController : ControllerBase
     /// (inside the hospital boundary) and returns one ciphertext of per-bin counts.
     /// </summary>
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, [Range(1, 512)] int binCount)
+    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
     {
-        if (binWidth <= 0)
-            return BadRequest("binWidth must be positive.");
         if (await CheckKeyAsync() is { } keyProblem)
             return keyProblem;
 
@@ -67,10 +64,8 @@ public class StatisticsController : ControllerBase
     /// (inside the hospital boundary) and returns one ciphertext of per-bin counts.
     /// </summary>
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, [Range(0, 150)] int startAge, [Range(0, 150)] int endAge, PatientSex? sex, decimal binStart, decimal binWidth, [Range(1, 512)] int binCount)
+    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
     {
-        if (binWidth <= 0)
-            return BadRequest("binWidth must be positive.");
         if (await CheckKeyAsync() is { } keyProblem)
             return keyProblem;
 
