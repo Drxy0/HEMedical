@@ -14,12 +14,12 @@ public class EncryptionService : IEncryptionService
         _keyService = keyService;
     }
 
-    public EncryptedStatisticsResult Encrypt(List<decimal> values, decimal? threshold = null)
+    public EncryptedStatisticsResult Encrypt(List<decimal> values, decimal? threshold = null, bool includeStandardDeviation = true)
     {
         // Unreachable in practice: the controllers gate every request behind the key-sync
         // check (503/409) before encrypting. Degenerate empty vectors, never a throw.
         if (_keyService.PublicKey is not { } publicKey)
-            return new EncryptedStatisticsResult([], [], [], null);
+            return new EncryptedStatisticsResult([], [], null, null);
 
         SEALContext context = _keyService.GetContext();
         using var encryptor = new Encryptor(context, publicKey);
@@ -27,11 +27,16 @@ public class EncryptionService : IEncryptionService
 
         ulong slotCount = encoder.SlotCount;
 
-        // Powers 1 and 2 give the client Σx and Σx², from which it derives the mean and
-        // standard deviation. The ones vector gives the count.
+        // Power 1 gives the client Σx, from which it derives the average. The ones vector
+        // gives the count.
         byte[] encryptedValues = EncryptVector(BuildPowerVector(values, slotCount, 1), encoder, encryptor);
         byte[] encryptedOnes = EncryptVector(BuildOnesVector(values.Count, slotCount), encoder, encryptor);
-        byte[] encryptedSquares = EncryptVector(BuildPowerVector(values, slotCount, 2), encoder, encryptor);
+
+        // Standard deviation: only when requested. Σx² is its own ciphertext, so skipping it
+        // saves an encryption here and a homomorphic add + decrypt further down the pipeline.
+        byte[]? encryptedSquares = includeStandardDeviation
+            ? EncryptVector(BuildPowerVector(values, slotCount, 2), encoder, encryptor)
+            : null;
 
         // Prevalence: only when a threshold was requested. The comparison is done here, in
         // plaintext, producing a 0/1 per patient; the encrypted side only sums the flags.
@@ -43,7 +48,7 @@ public class EncryptionService : IEncryptionService
             encryptedValues, encryptedOnes, encryptedSquares, encryptedAbove);
     }
 
-    public byte[] EncryptHistogram(List<decimal> values, decimal binStart, decimal binWidth, int binCount)
+    public byte[] EncryptHistogram(List<decimal> values, double binStart, double binWidth, int binCount)
     {
         // Safety net for bad bins (the Client validates these before any request gets here):
         // a non-positive width would divide by zero and a non-positive count would size the
@@ -74,11 +79,12 @@ public class EncryptionService : IEncryptionService
     /// Slot binCount counts values below the first bin, slot binCount+1 values at or past
     /// the last bin, so the slots always add up to the full cohort.
     /// </summary>
-    private static List<double> BuildBinCountsVector(List<decimal> values, ulong slotCount, decimal binStart, decimal binWidth, int binCount)
+    private static List<double> BuildBinCountsVector(List<decimal> values, ulong slotCount, double binStart, double binWidth, int binCount)
     {
         List<double> vector = ZeroVector(slotCount);
-        foreach (decimal v in values)
+        foreach (decimal value in values)
         {
+            double v = (double)value;
             int slot;
             if (v < binStart)
                 slot = binCount;                                    // underflow

@@ -4,6 +4,7 @@ using HEMedical.Shared.Common;
 using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
+using HEMedical.Client.Helpers;
 
 namespace HEMedical.Client.Services;
 
@@ -30,18 +31,30 @@ internal class PlainStatisticsService : IPlainStatisticsService
         _maxConcurrency = configuration.GetValue("Breakdown:MaxConcurrency", BreakdownBuckets.DefaultMaxConcurrency);
     }
 
-    public Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null) =>
-        QueryAsync(loincCode, componentLoincCode, threshold,
-            () => _plainServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold));
+    public async Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold, bool includeStandardDeviation)
+    {
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
+        if (!verification.IsSuccess)
+            return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
 
-    public async Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
+        Task<PlaintextStatisticsResult?> Fetch() =>
+            _plainServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation);
+        return await ExecuteAsync(verification.Value!, threshold, Fetch);
+    }
+
+    public async Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation)
     {
         string? error = QueryValidation.AgeRange(startAge, endAge);
         if (error is not null)
             return Result<QueryResult>.Fail(error, ErrorKind.InvalidInput);
 
-        return await QueryAsync(loincCode, componentLoincCode, threshold,
-            () => _plainServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold));
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
+        if (!verification.IsSuccess)
+            return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
+
+        Task<PlaintextStatisticsResult?> Fetch() =>
+            _plainServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation);
+        return await ExecuteAsync(verification.Value!, threshold, Fetch);
     }
 
     public async Task<Result<BreakdownResult>> GetBreakdownByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex)
@@ -50,10 +63,11 @@ internal class PlainStatisticsService : IPlainStatisticsService
         if (!buckets.IsSuccess)
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
+        Task<PlaintextStatisticsResult?> Fetch(BreakdownBuckets.AgeBucket b) =>
+            _plainServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex);
+
         return await RunBreakdownAsync(loincCode, componentLoincCode,
-            buckets.Value!.Select(b => b.Label).ToList(),
-            buckets.Value!.Select(b => (Func<Task<PlaintextStatisticsResult?>>)
-                (() => _plainServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex))).ToList());
+            buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);
     }
 
     public async Task<Result<BreakdownResult>> GetBreakdownByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex)
@@ -62,74 +76,80 @@ internal class PlainStatisticsService : IPlainStatisticsService
         if (!buckets.IsSuccess)
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
+        Task<PlaintextStatisticsResult?> Fetch(BreakdownBuckets.DateBucket b) =>
+            _plainServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex);
+
         return await RunBreakdownAsync(loincCode, componentLoincCode,
-            buckets.Value!.Select(b => b.Label).ToList(),
-            buckets.Value!.Select(b => (Func<Task<PlaintextStatisticsResult?>>)
-                (() => _plainServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex))).ToList());
+            buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);
     }
 
-    public Task<Result<HistogramResult>> GetHistogramByDateAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
-        HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount,
-            () => _plainServerClient.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount));
+    public Task<Result<HistogramResult>> GetHistogramByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount)
+    {
+        Task<double[]?> Fetch() => _plainServerClient.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount);
+        return HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount, Fetch);
+    }
 
-    public async Task<Result<HistogramResult>> GetHistogramByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public Task<Result<HistogramResult>> GetHistogramByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         string? error = QueryValidation.AgeRange(startAge, endAge);
         if (error is not null)
-            return Result<HistogramResult>.Fail(error, ErrorKind.InvalidInput);
+            return Task.FromResult(Result<HistogramResult>.Fail(error, ErrorKind.InvalidInput));
 
-        return await HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount,
-            () => _plainServerClient.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount));
+        Task<double[]?> Fetch() => _plainServerClient.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount);
+        return HistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount, Fetch);
     }
 
     /// <summary>
-    /// The common query flow: verify the codes, fetch the plain sums from the PlainServer,
-    /// derive the statistics. PlainServer connectivity problems come back as a failed
+    /// Fetch + derive for one already-verified query — the shared tail of a single query and
+    /// of each breakdown bucket. PlainServer connectivity problems come back as a failed
     /// result rather than an unhandled exception.
     /// </summary>
-    private async Task<Result<QueryResult>> QueryAsync(string loincCode, string? componentLoincCode, decimal? threshold, Func<Task<PlaintextStatisticsResult?>> fetch)
-    {
-        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
-        if (!verification.IsSuccess)
-            return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
-
-        return await ExecuteAsync(verification.Value!, threshold, fetch);
-    }
-
-    /// <summary>Fetch + derive for one already-verified query (one bucket, in the breakdown case).</summary>
     private async Task<Result<QueryResult>> ExecuteAsync(LoincCodeInfo codeInfo, decimal? threshold, Func<Task<PlaintextStatisticsResult?>> fetch)
     {
-        PlaintextStatisticsResult? result;
+        PlaintextStatisticsResult? plain;
         try
         {
-            result = await fetch();
+            plain = await fetch();
         }
         catch (Exception ex)
         {
             return Result<QueryResult>.Fail($"PlainServer request failed: {ex.Message}");
         }
 
-        return ToQueryResult(codeInfo, threshold, result);
+        if (plain is null)
+            return Result<QueryResult>.Fail("No data returned from PlainServer.");
+
+        // The plain sums map one-to-one onto the totals the encrypted path recovers by
+        // decrypting its moment vectors — from here on both paths run the same code.
+        MomentSums m = new(plain.OnesSum, plain.ValuesSum, plain.SquaresSum, plain.AboveThresholdSum);
+
+        // No hospital had any observations for this code (e.g. all returned empty sums).
+        if (m.N < 0.5)
+            return Result<QueryResult>.Fail($"No observations found for '{codeInfo.DisplayName}'.", ErrorKind.NotFound);
+
+        return StatisticsMath.BuildStatistics(codeInfo, threshold, m);
     }
 
     /// <summary>
     /// Runs one average query per bucket (each an independent PlainServer query) and
     /// assembles the breakdown. The LOINC code is verified once up front, not per bucket.
     /// </summary>
-    private async Task<Result<BreakdownResult>> RunBreakdownAsync(
+    private async Task<Result<BreakdownResult>> RunBreakdownAsync<TBucket>(
         string loincCode,
         string? componentLoincCode,
+        IReadOnlyList<TBucket> buckets,
         IReadOnlyList<string> labels,
-        IReadOnlyList<Func<Task<PlaintextStatisticsResult?>>> fetches)
+        Func<TBucket, Task<PlaintextStatisticsResult?>> fetch)
     {
         Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
         if (!verification.IsSuccess)
             return Result<BreakdownResult>.Fail(verification.Error!, verification.Kind);
 
-        var factories = fetches
-            .Select(f => (Func<Task<Result<QueryResult>>>)(() => ExecuteAsync(verification.Value!, threshold: null, f)))
-            .ToList();
-        Result<QueryResult>[] results = await Concurrency.RunAsync(factories, _maxConcurrency);
+        var factories = new List<Func<Task<Result<QueryResult>>>>(buckets.Count);
+        foreach (TBucket bucket in buckets)
+            factories.Add(() => ExecuteAsync(verification.Value!, threshold: null, () => fetch(bucket)));
+
+        Result<QueryResult>[] results = await QueryFanout.RunAsync(factories, _maxConcurrency);
         return Breakdown.Build(verification.Value!.DisplayName, verification.Value!.Unit, labels, results);
     }
 
@@ -140,7 +160,7 @@ internal class PlainStatisticsService : IPlainStatisticsService
     /// </summary>
     private async Task<Result<HistogramResult>> HistogramAsync(
         string loincCode, string? componentLoincCode,
-        decimal binStart, decimal binWidth, int binCount,
+        double binStart, double binWidth, int binCount,
         Func<Task<double[]?>> fetch)
     {
         string? binError = QueryValidation.Bins(binWidth, binCount);
@@ -184,8 +204,6 @@ internal class PlainStatisticsService : IPlainStatisticsService
     /// <summary>
     /// Verifies the LOINC code — and the component code, when present — against the
     /// LOINC terminology service, catching typos before any hospital is queried.
-    /// The returned info describes the measurement itself: the component's when one
-    /// is given (e.g. "Systolic blood pressure"), otherwise the main code's.
     /// </summary>
     private async Task<Result<LoincCodeInfo>> VerifyCodesAsync(string loincCode, string? componentLoincCode)
     {
@@ -197,22 +215,5 @@ internal class PlainStatisticsService : IPlainStatisticsService
             return main;
 
         return await _loincVerificationService.VerifyAsync(componentLoincCode);
-    }
-
-    private static Result<QueryResult> ToQueryResult(LoincCodeInfo codeInfo, decimal? threshold, PlaintextStatisticsResult? plain)
-    {
-        if (plain is null)
-            return Result<QueryResult>.Fail("No data returned from PlainServer.");
-
-        // The plain sums map one-to-one onto the totals the encrypted path recovers by
-        // decrypting its moment vectors — from here on both paths run the same code.
-        MomentSums m = new(plain.OnesSum, plain.ValuesSum, plain.SquaresSum, plain.AboveThresholdSum);
-
-        // No hospital had any observations for this code (e.g. all returned empty sums).
-        if (m.N < 0.5)
-            return Result<QueryResult>.Fail($"No observations found for '{codeInfo.DisplayName}'.", ErrorKind.NotFound);
-
-        QueryResult result = StatisticsMath.BuildStatistics(codeInfo, threshold, m);
-        return result;
     }
 }

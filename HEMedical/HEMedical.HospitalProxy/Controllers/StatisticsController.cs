@@ -23,24 +23,24 @@ public class StatisticsController : ControllerBase
     }
 
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true)
     {
         if (await CheckKeyAsync() is { } keyProblem)
             return keyProblem;
 
         List<decimal> values = await _fhirQueryService.GetValuesByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
-        EncryptedStatisticsResult result = _encryptionService.Encrypt(values, threshold);
+        EncryptedStatisticsResult result = _encryptionService.Encrypt(values, threshold, includeStandardDeviation);
         return Ok(result);
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true)
     {
         if (await CheckKeyAsync() is { } keyProblem)
             return keyProblem;
 
         List<decimal> values = await _fhirQueryService.GetValuesByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
-        EncryptedStatisticsResult result = _encryptionService.Encrypt(values, threshold);
+        EncryptedStatisticsResult result = _encryptionService.Encrypt(values, threshold, includeStandardDeviation);
         return Ok(result);
     }
 
@@ -49,7 +49,7 @@ public class StatisticsController : ControllerBase
     /// (inside the hospital boundary) and returns one ciphertext of per-bin counts.
     /// </summary>
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         if (await CheckKeyAsync() is { } keyProblem)
             return keyProblem;
@@ -64,7 +64,7 @@ public class StatisticsController : ControllerBase
     /// (inside the hospital boundary) and returns one ciphertext of per-bin counts.
     /// </summary>
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         if (await CheckKeyAsync() is { } keyProblem)
             return keyProblem;

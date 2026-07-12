@@ -21,9 +21,9 @@ public class VerificationController : ControllerBase
     /// via the PlainServer, without encryption. Used to verify HE results.
     /// </summary>
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetPlainStatistics(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetPlainStatistics(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold, bool includeStandardDeviation)
     {
-        var result = await _plainStatService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold);
+        var result = await _plainStatService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 
@@ -32,9 +32,9 @@ public class VerificationController : ControllerBase
     /// via the PlainServer, without encryption. Used to verify HE results.
     /// </summary>
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetPlainStatisticsByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetPlainStatisticsByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation)
     {
-        var result = await _plainStatService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold);
+        var result = await _plainStatService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 
@@ -56,7 +56,7 @@ public class VerificationController : ControllerBase
 
     /// <summary>Plaintext counterpart of the HE frequency histogram (by date), for verification.</summary>
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetPlainHistogramByDate(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetPlainHistogramByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         var result = await _plainStatService.GetHistogramByDateAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount);
         return this.ToActionResult(result);
@@ -64,7 +64,7 @@ public class VerificationController : ControllerBase
 
     /// <summary>Plaintext counterpart of the HE frequency histogram (by age), for verification.</summary>
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetPlainHistogramByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetPlainHistogramByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         var result = await _plainStatService.GetHistogramByAgeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount);
         return this.ToActionResult(result);

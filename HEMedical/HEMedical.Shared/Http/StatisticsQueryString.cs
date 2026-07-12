@@ -9,39 +9,39 @@ namespace HEMedical.Shared.Http;
 /// </summary>
 public static class StatisticsQueryString
 {
-    public static string ByDate(string path, string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null)
+    public static string ByDate(string path, string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, double? threshold, bool includeStandardDeviation)
     {
         var url = new StringBuilder($"{path}?loincCode={Uri.EscapeDataString(loincCode)}");
         if (startDate.HasValue)
             url.Append($"&startDate={startDate.Value:yyyy-MM-dd}");
         if (endDate.HasValue)
             url.Append($"&endDate={endDate.Value:yyyy-MM-dd}");
-        AppendCommon(url, componentLoincCode, sex, threshold);
+        AppendCommon(url, componentLoincCode, sex, threshold, includeStandardDeviation);
         return url.ToString();
     }
 
-    public static string ByAge(string path, string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
+    public static string ByAge(string path, string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation = true)
     {
         var url = new StringBuilder($"{path}?loincCode={Uri.EscapeDataString(loincCode)}&startAge={startAge}&endAge={endAge}");
-        AppendCommon(url, componentLoincCode, sex, threshold);
+        AppendCommon(url, componentLoincCode, sex, threshold, includeStandardDeviation);
         return url.ToString();
     }
 
-    public static string HistogramByDate(string path, string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public static string HistogramByDate(string path, string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
-        var url = new StringBuilder(ByDate(path, loincCode, componentLoincCode, startDate, endDate, sex));
+        var url = new StringBuilder(ByDate(path, loincCode, componentLoincCode, startDate, endDate, sex, null, false));
         AppendBins(url, binStart, binWidth, binCount);
         return url.ToString();
     }
 
-    public static string HistogramByAge(string path, string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public static string HistogramByAge(string path, string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
-        var url = new StringBuilder(ByAge(path, loincCode, componentLoincCode, startAge, endAge, sex));
+        var url = new StringBuilder(ByAge(path, loincCode, componentLoincCode, startAge, endAge, sex, null, false));
         AppendBins(url, binStart, binWidth, binCount);
         return url.ToString();
     }
 
-    private static void AppendCommon(StringBuilder url, string? componentLoincCode, PatientSex? sex, decimal? threshold)
+    private static void AppendCommon(StringBuilder url, string? componentLoincCode, PatientSex? sex, double? threshold, bool includeStandardDeviation)
     {
         if (componentLoincCode is not null)
             url.Append($"&componentLoincCode={Uri.EscapeDataString(componentLoincCode)}");
@@ -49,11 +49,14 @@ public static class StatisticsQueryString
             url.Append($"&sex={sex.Value}");
         if (threshold.HasValue)
             url.Append($"&threshold={threshold.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        // Omitted when true (the default) so the common case doesn't grow every URL.
+        if (!includeStandardDeviation)
+            url.Append("&includeStandardDeviation=false");
     }
 
     // The bin layout travels with the query so every hospital bins identically —
     // slot b at one hospital must mean the same value range as slot b at another.
-    private static void AppendBins(StringBuilder url, decimal binStart, decimal binWidth, int binCount)
+    private static void AppendBins(StringBuilder url, double binStart, double binWidth, int binCount)
     {
         url.Append($"&binStart={binStart.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
         url.Append($"&binWidth={binWidth.ToString(System.Globalization.CultureInfo.InvariantCulture)}");

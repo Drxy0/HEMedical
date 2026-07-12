@@ -17,9 +17,9 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// (fraction of patients at or above it). Codes are verified against the online LOINC service first.
     /// </summary>
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold = null, bool includeStandardDeviation)
     {
-        var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold);
+        var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 
@@ -30,9 +30,9 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// threshold to also get the prevalence at or above it.
     /// </summary>
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold = null, bool includeStandardDeviation)
     {
-        var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold);
+        var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 
@@ -64,7 +64,7 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// reported as below/above-range counts. One encrypted round trip for all bins.
     /// </summary>
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetHistogramByDate(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         var result = await _statService.GetHistogramByDateAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount);
         return this.ToActionResult(result);
@@ -75,7 +75,7 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// Same bin semantics as the by-date variant.
     /// </summary>
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetHistogramByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         var result = await _statService.GetHistogramByAgeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount);
         return this.ToActionResult(result);

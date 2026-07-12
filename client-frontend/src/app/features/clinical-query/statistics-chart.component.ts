@@ -152,7 +152,7 @@ export class StatisticsChartComponent {
   private readonly suggestedMax = computed<number | undefined>(() => {
     const all = [...(this.heResults() ?? []), ...(this.plaintextResults() ?? [])];
     if (!all.length) return undefined;
-    return Math.max(...all.map((r) => r.value + r.stdDev)) * 1.1;
+    return Math.max(...all.map((r) => r.value + (r.stdDev ?? 0))) * 1.1;
   });
 
   readonly chartOptions = computed<ChartConfiguration<'bar'>['options']>(() => ({
@@ -189,8 +189,10 @@ export class StatisticsChartComponent {
       ['Plaintext', this.plaintextResults()],
     ] as const) {
       for (const r of results ?? []) {
+        const sigma =
+          r.stdDev !== null ? `, standard deviation ${r.stdDev.toFixed(2)}` : '';
         parts.push(
-          `${r.measurementName} (${source}): average ${r.value.toFixed(2)}, standard deviation ${r.stdDev.toFixed(2)} ${r.unitOfMeasurement}`,
+          `${r.measurementName} (${source}): average ${r.value.toFixed(2)}${sigma} ${r.unitOfMeasurement}`,
         );
       }
     }

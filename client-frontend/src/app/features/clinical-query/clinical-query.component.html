@@ -263,6 +263,21 @@
               Optional — also report the fraction of patients at or above this value.
             </span>
           </div>
+
+          <div class="field">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                formControlName="includeStandardDeviation"
+                aria-describedby="includeStandardDeviation-hint"
+              />
+              Include standard deviation
+            </label>
+            <span id="includeStandardDeviation-hint" class="field-hint">
+              Uncheck to skip σ — each hospital then avoids computing, encrypting and sending the
+              Σx² vector, so the query is a little lighter when only the average is needed.
+            </span>
+          </div>
         }
 
         @if (isHistogram()) {
@@ -362,7 +377,10 @@
                   <div class="result-row">
                     <dt>{{ he.measurementName }} (HE)</dt>
                     <dd>
-                      {{ he.value | number: '1.2-2' }} ± {{ he.stdDev | number: '1.2-2' }}
+                      {{ he.value | number: '1.2-2' }}
+                      @if (he.stdDev !== null) {
+                        ± {{ he.stdDev | number: '1.2-2' }}
+                      }
                       {{ he.unitOfMeasurement }}
                       <span class="result-detail">
                         n = {{ he.count }} · sum {{ he.sum | number: '1.0-2' }}
@@ -380,7 +398,10 @@
                   <div class="result-row">
                     <dt>{{ pt.measurementName }} (Plaintext)</dt>
                     <dd>
-                      {{ pt.value | number: '1.2-2' }} ± {{ pt.stdDev | number: '1.2-2' }}
+                      {{ pt.value | number: '1.2-2' }}
+                      @if (pt.stdDev !== null) {
+                        ± {{ pt.stdDev | number: '1.2-2' }}
+                      }
                       {{ pt.unitOfMeasurement }}
                       <span class="result-detail">
                         n = {{ pt.count }} · sum {{ pt.sum | number: '1.0-2' }}

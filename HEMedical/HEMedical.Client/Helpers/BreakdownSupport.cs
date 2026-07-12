@@ -1,20 +1,14 @@
 using HEMedical.Client.DTOs;
 using HEMedical.Shared.Common;
 
-namespace HEMedical.Client.Services;
+namespace HEMedical.Client.Helpers;
 
-/// <summary>
-/// A breakdown is just the ordinary average query run once per bucket. The bucket
-/// layout is generated here so the HE path and the plaintext verification path bucket
-/// identically (the same reason their filters are shared) — otherwise the two charts
-/// could not be compared bar-for-bar.
-/// </summary>
+
 internal static class BreakdownBuckets
 {
-    /// <summary>Default bucket cap when "Breakdown:MaxBuckets" is not configured.</summary>
     public const int DefaultMaxBuckets = 50;
 
-    /// <summary>Default number of bucket queries run at once when "Breakdown:MaxConcurrency" is not configured.</summary>
+    // number of queries run at once when "Breakdown:MaxConcurrency" is not configured.
     public const int DefaultMaxConcurrency = 4;
 
     public record AgeBucket(string Label, int StartAge, int EndAge);
@@ -85,7 +79,7 @@ internal static class BreakdownBuckets
 /// uses this so a many-bucket request trickles queries to the FHIR server (a few at a time)
 /// instead of flooding it — the flood is what trips public servers' rate limiting.
 /// </summary>
-internal static class Concurrency
+internal static class QueryFanout
 {
     /// <summary>
     /// Invokes each factory, keeping at most <paramref name="maxConcurrency"/> running
@@ -99,7 +93,11 @@ internal static class Concurrency
         var tasks = factories.Select(async factory =>
         {
             await gate.WaitAsync();
-            try { return await factory(); }
+            try 
+            { 
+                return await factory();
+            }
+            // Release the gate no matter if an exception occurs
             finally { gate.Release(); }
         });
         return await Task.WhenAll(tasks);
@@ -124,7 +122,8 @@ internal static class Breakdown
         {
             Result<QueryResult> r = results[i];
             if (r.IsSuccess)
-                buckets.Add(new BreakdownBucket(labels[i], r.Value!.Value, r.Value.StdDev, HasData: true));
+                // Breakdown buckets never opt out of the standard deviation, so this is always present.
+                buckets.Add(new BreakdownBucket(labels[i], r.Value!.Value, r.Value.StdDev ?? 0, HasData: true));
             else if (r.Kind == ErrorKind.NotFound)
                 buckets.Add(new BreakdownBucket(labels[i], 0, 0, HasData: false));
             else

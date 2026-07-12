@@ -59,7 +59,8 @@ export const MEASUREMENT_PRESETS: MeasurementPreset[] = [
 export interface QueryResult {
   measurementName: string;
   value: number;
-  stdDev: number;
+  /** Null when the query opted out of the standard deviation. */
+  stdDev: number | null;
   unitOfMeasurement: string;
   sum: number;
   count: number;

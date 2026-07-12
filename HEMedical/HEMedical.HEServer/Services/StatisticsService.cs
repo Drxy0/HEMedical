@@ -39,16 +39,16 @@ public class StatisticsService : IStatisticsService
         _context = new SEALContext(parms);
     }
 
-    public Task<Result<EncryptedStatisticsResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null) =>
-        QueryProxiesAsync(client => client.GetByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold), AggregateResults);
+    public Task<Result<EncryptedStatisticsResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true) =>
+        QueryProxiesAsync(client => client.GetByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation), AggregateResults);
 
-    public Task<Result<EncryptedStatisticsResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null) =>
-        QueryProxiesAsync(client => client.GetByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold), AggregateResults);
+    public Task<Result<EncryptedStatisticsResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true) =>
+        QueryProxiesAsync(client => client.GetByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation), AggregateResults);
 
-    public Task<Result<byte[]>> GetHistogramByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
+    public Task<Result<byte[]>> GetHistogramByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount) =>
         QueryProxiesAsync(client => client.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount), AggregateHistograms);
 
-    public Task<Result<byte[]>> GetHistogramByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
+    public Task<Result<byte[]>> GetHistogramByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount) =>
         QueryProxiesAsync(client => client.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount), AggregateHistograms);
 
     /// <summary>
@@ -104,9 +104,10 @@ public class StatisticsService : IStatisticsService
 
     /// <summary>
     /// Aggregates encrypted responses from multiple hospitals by homomorphically summing
-    /// each vector slot-by-slot across all hospitals. The required moment vectors (values, ones,
-    /// squares) are always aggregated; the optional above-threshold vector is aggregated only
-    /// when the hospitals produced it (i.e. a prevalence threshold was requested).
+    /// each vector slot-by-slot across all hospitals. The values and ones vectors are always
+    /// aggregated; the squares and above-threshold vectors are aggregated only when the
+    /// hospitals produced them (i.e. the standard deviation and/or a prevalence threshold
+    /// were requested).
     /// </summary>
     /// <param name="responses">Encrypted responses from each hospital.</param>
     /// <returns>The aggregated response <see cref="EncryptedStatisticsResult"/>.</returns>
@@ -119,7 +120,7 @@ public class StatisticsService : IStatisticsService
 
         byte[] values = AggregateVector(responses, evaluator, r => r.ValuesSum)!;
         byte[] ones = AggregateVector(responses, evaluator, r => r.OnesSum)!;
-        byte[] squares = AggregateVector(responses, evaluator, r => r.SquaresSum)!;
+        byte[]? squares = AggregateVector(responses, evaluator, r => r.SquaresSum);
         byte[]? above = AggregateVector(responses, evaluator, r => r.AboveThresholdSum);
 
         return new EncryptedStatisticsResult(values, ones, squares, above);

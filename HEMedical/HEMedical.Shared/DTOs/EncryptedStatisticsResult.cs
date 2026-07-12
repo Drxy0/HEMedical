@@ -7,12 +7,10 @@ namespace HEMedical.Shared.DTOs;
 /// </summary>
 /// <param name="ValuesSum">sum of x.</param>
 /// <param name="OnesSum">sum of 1 (count).</param>
-/// <param name="SquaresSum">sum of x².</param>
-/// <param name="AboveThresholdSum">sum of [x ≥ threshold].</param>
-/// Null when the caller did not request a prevalence threshold.
-/// </param>
+/// <param name="SquaresSum"> sum of x^2.</param>
+/// <param name="AboveThresholdSum"> sum of [x ≥ threshold]./// </param>
 public record EncryptedStatisticsResult(
     byte[] ValuesSum,
     byte[] OnesSum,
-    byte[] SquaresSum,
+    byte[]? SquaresSum,
     byte[]? AboveThresholdSum);

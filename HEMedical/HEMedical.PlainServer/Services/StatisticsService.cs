@@ -31,16 +31,16 @@ public class StatisticsService : IStatisticsService
         _logger = logger;
     }
 
-    public Task<Result<PlaintextStatisticsResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null) =>
-        QueryProxiesAsync(client => client.GetByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold), AggregateResults);
+    public Task<Result<PlaintextStatisticsResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true) =>
+        QueryProxiesAsync(client => client.GetByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation), AggregateResults);
 
-    public Task<Result<PlaintextStatisticsResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null) =>
-        QueryProxiesAsync(client => client.GetByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold), AggregateResults);
+    public Task<Result<PlaintextStatisticsResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true) =>
+        QueryProxiesAsync(client => client.GetByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation), AggregateResults);
 
-    public Task<Result<double[]>> GetHistogramByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
+    public Task<Result<double[]>> GetHistogramByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount) =>
         QueryProxiesAsync(client => client.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount), AggregateHistograms);
 
-    public Task<Result<double[]>> GetHistogramByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount) =>
+    public Task<Result<double[]>> GetHistogramByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount) =>
         QueryProxiesAsync(client => client.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount), AggregateHistograms);
 
     /// <summary>
@@ -91,9 +91,9 @@ public class StatisticsService : IStatisticsService
     /// <summary>
     /// Aggregates plaintext responses from multiple hospitals by summing each total
     /// across all hospitals — the plain-number mirror of the HE Server's slot-wise
-    /// ciphertext addition. The required sums (values, ones, squares) are always
-    /// aggregated; the optional above-threshold sum is aggregated only when the
-    /// hospitals produced it (i.e. a prevalence threshold was requested).
+    /// ciphertext addition. Values and ones are always aggregated; squares and the
+    /// above-threshold sum are aggregated only when the hospitals produced them
+    /// (i.e. the standard deviation and/or a prevalence threshold were requested).
     /// </summary>
     /// <param name="responses">Plaintext responses from each hospital.</param>
     /// <returns>The aggregated response <see cref="PlaintextStatisticsResult"/>.</returns>
@@ -104,7 +104,7 @@ public class StatisticsService : IStatisticsService
 
         double values = AggregateScalar(responses, r => r.ValuesSum)!.Value;
         double ones = AggregateScalar(responses, r => r.OnesSum)!.Value;
-        double squares = AggregateScalar(responses, r => r.SquaresSum)!.Value;
+        double? squares = AggregateScalar(responses, r => r.SquaresSum);
         double? above = AggregateScalar(responses, r => r.AboveThresholdSum);
 
         return new PlaintextStatisticsResult(values, ones, squares, above);

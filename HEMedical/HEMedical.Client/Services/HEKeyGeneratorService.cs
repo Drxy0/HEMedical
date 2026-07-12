@@ -5,7 +5,7 @@ using Microsoft.Research.SEAL;
 
 namespace HEMedical.Client.Services;
 
-public class HEKeyService : IHEKeyService
+public class HEKeyGeneratorService : IHEKeyGeneratorService
 {
     private const string PublicKeyPath = "public.key";
     private const string SecretKeyPath = "secret.key";
@@ -13,10 +13,9 @@ public class HEKeyService : IHEKeyService
     private readonly SEALContext _context;
     public PublicKey PublicKey { get; private set; } = null!;
     public SecretKey SecretKey { get; private set; } = null!;
-    public byte[] PublicKeyBytes { get; private set; } = null!;
     public string PublicKeyFingerprint { get; private set; } = null!;
 
-    public HEKeyService()
+    public HEKeyGeneratorService()
     {
         using EncryptionParameters parms = new(SchemeType.CKKS);
         parms.PolyModulusDegree = CKKSParameters.PolyModulusDegree;
@@ -24,19 +23,13 @@ public class HEKeyService : IHEKeyService
 
         _context = new SEALContext(parms);
 
-        if (File.Exists(PublicKeyPath) && File.Exists(SecretKeyPath))
-        {
-            LoadKeys();
-        }
-        else
-        {
+        // Reuse the persisted pair when it loads under the current parameters, otherwise regenerate,
+        if (!(File.Exists(PublicKeyPath) && File.Exists(SecretKeyPath) && TryLoadKeys()))
             GenerateAndSaveKeys();
-        }
 
         using var stream = new MemoryStream();
         PublicKey.Save(stream);
-        PublicKeyBytes = stream.ToArray();
-        PublicKeyFingerprint = KeyFingerprint.Compute(PublicKeyBytes);
+        PublicKeyFingerprint = KeyFingerprint.Compute(stream.ToArray());
     }
 
     private void GenerateAndSaveKeys()
@@ -46,8 +39,6 @@ public class HEKeyService : IHEKeyService
         keygen.CreatePublicKey(out PublicKey publicKey);
         PublicKey = publicKey;
 
-        // File.Create truncates any existing file; OpenWrite would leave trailing bytes
-        // of a longer stale key in place and corrupt it.
         using (var stream = File.Create(SecretKeyPath))
             SecretKey.Save(stream);
 
@@ -55,15 +46,25 @@ public class HEKeyService : IHEKeyService
             PublicKey.Save(stream);
     }
 
-    private void LoadKeys()
+    private bool TryLoadKeys()
     {
-        PublicKey = new();
-        using (var stream = File.OpenRead(PublicKeyPath))
-            PublicKey.Load(_context, stream);
+        try
+        {
+            PublicKey = new();
+            using (var stream = File.OpenRead(PublicKeyPath))
+                PublicKey.Load(_context, stream);
 
-        SecretKey = new();
-        using (var stream = File.OpenRead(SecretKeyPath))
-            SecretKey.Load(_context, stream);
+            SecretKey = new();
+            using (var stream = File.OpenRead(SecretKeyPath))
+                SecretKey.Load(_context, stream);
+
+            return true;
+        }
+        catch (Exception)
+        {
+            // Treat the persisted pair as unusable and regenerate.
+            return false;
+        }
     }
 
     public SEALContext GetContext() => _context;

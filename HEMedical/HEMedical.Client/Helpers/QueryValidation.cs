@@ -1,12 +1,5 @@
-namespace HEMedical.Client.Services;
+namespace HEMedical.Client.Helpers;
 
-/// <summary>
-/// Range checks for statistics-query inputs, kept in the service layer so both the HE and
-/// the plaintext path enforce the same rules from one place (rather than each controller
-/// repeating attributes). Each method returns an error message when the input is invalid,
-/// or null when it is acceptable; callers turn a non-null message into a failed result with
-/// <see cref="HEMedical.Shared.Common.ErrorKind.InvalidInput"/>, which the web layer maps to 400.
-/// </summary>
 internal static class QueryValidation
 {
     public const int MinAge = 0;
@@ -23,7 +16,7 @@ internal static class QueryValidation
     }
 
     /// <summary>Bin width must be positive and the bin count within [1, MaxBinCount].</summary>
-    public static string? Bins(decimal binWidth, int binCount)
+    public static string? Bins(double binWidth, int binCount)
     {
         if (binWidth <= 0)
             return "Bin width must be positive.";

@@ -18,15 +18,6 @@ namespace HEMedical.Client.Services;
 /// </summary>
 internal class LoincVerificationService : ILoincVerificationService
 {
-    /// <summary>Preset codes, known valid — never sent to the terminology server.</summary>
-    private static readonly Dictionary<string, LoincCodeInfo> _knownCodes = new()
-    {
-        ["4548-4"] = new("Hemoglobin A1c/Hemoglobin.total in Blood", "%"),
-        ["85354-9"] = new("Blood pressure panel with all children optional", "mm[Hg]"),
-        ["8480-6"] = new("Systolic blood pressure", "mm[Hg]"),
-        ["8462-4"] = new("Diastolic blood pressure", "mm[Hg]"),
-    };
-
     private static readonly ConcurrentDictionary<string, LoincCodeInfo> _verifiedCache = new();
 
     private readonly HttpClient _httpClient;
@@ -42,9 +33,6 @@ internal class LoincVerificationService : ILoincVerificationService
     {
         if (string.IsNullOrWhiteSpace(loincCode))
             return Result<LoincCodeInfo>.Fail("LOINC code must not be empty.", ErrorKind.InvalidInput);
-
-        if (_knownCodes.TryGetValue(loincCode, out LoincCodeInfo? known))
-            return known;
 
         if (_verifiedCache.TryGetValue(loincCode, out LoincCodeInfo? cached))
             return cached;

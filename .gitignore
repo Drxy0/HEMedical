@@ -428,3 +428,8 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# SEAL homomorphic-encryption keys — generated at runtime by HEKeyGeneratorService.
+# The secret key must never be committed; the public key is regenerated on demand.
+*.key
+/thesis-outline.pdf

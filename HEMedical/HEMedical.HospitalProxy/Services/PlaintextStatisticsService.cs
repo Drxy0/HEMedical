@@ -13,13 +13,14 @@ namespace HEMedical.HospitalProxy.Services;
 /// </summary>
 public class PlaintextStatisticsService : IPlaintextStatisticsService
 {
-    public PlaintextStatisticsResult Compute(List<decimal> values, decimal? threshold = null)
+    public PlaintextStatisticsResult Compute(List<decimal> values, decimal? threshold = null, bool includeStandardDeviation = true)
     {
-        // Powers 1 and 2 give the client Σx and Σx², from which it derives the mean and
-        // standard deviation. The count is Σ1.
+        // Power 1 gives the client Σx, from which it derives the average. The count is Σ1.
         double valuesSum = BuildPowerSum(values, 1);
         double onesSum = values.Count;
-        double squaresSum = BuildPowerSum(values, 2);
+
+        // Standard deviation: only when requested, mirroring the encrypted path's Σx² gate.
+        double? squaresSum = includeStandardDeviation ? BuildPowerSum(values, 2) : null;
 
         // Prevalence: only when a threshold was requested. The same plaintext comparison
         // the encrypted path performs, producing the same 0/1-per-patient total.
@@ -31,7 +32,7 @@ public class PlaintextStatisticsService : IPlaintextStatisticsService
             valuesSum, onesSum, squaresSum, aboveSum);
     }
 
-    public double[] ComputeHistogram(List<decimal> values, decimal binStart, decimal binWidth, int binCount)
+    public double[] ComputeHistogram(List<decimal> values, double binStart, double binWidth, int binCount)
     {
         // Safety net for bad bins (the Client validates these first): a non-positive width
         // divides by zero and a non-positive count sizes the array negatively. Degrade to empty.
@@ -77,11 +78,12 @@ public class PlaintextStatisticsService : IPlaintextStatisticsService
     /// vector: entry b counts bin b, entry binCount the underflow, entry binCount+1 the
     /// overflow, so the entries always add up to the full cohort.
     /// </summary>
-    private static double[] BuildBinCounts(List<decimal> values, decimal binStart, decimal binWidth, int binCount)
+    private static double[] BuildBinCounts(List<decimal> values, double binStart, double binWidth, int binCount)
     {
         double[] counts = new double[binCount + 2];
-        foreach (decimal v in values)
+        foreach (decimal value in values)
         {
+            double v = (double)value;
             int slot;
             if (v < binStart)
                 slot = binCount;                                    // underflow

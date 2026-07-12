@@ -3,10 +3,12 @@ using HEMedical.Shared.Security;
 
 namespace HEMedical.HEServer.Services;
 
-/// <summary>Stores the Client's public key and hands it to hospital proxies when they register.</summary>
+/// <summary>
+/// Stores the Client's public key and hands it to hospital proxies when they register.
+/// </summary>
 public class HEKeyRegistry
 {
-    // The registry is a shared singleton, so the lock guards this key against concurrent reads and writes.
+    // Shared singleton, so the lock guards the key against concurrent reads and writes.
     private readonly object _lock = new();
     private HEPublicKeyDto? _current;
 

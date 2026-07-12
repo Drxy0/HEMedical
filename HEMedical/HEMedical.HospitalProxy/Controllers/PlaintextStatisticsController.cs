@@ -29,24 +29,24 @@ public class PlaintextStatisticsController : ControllerBase
     }
 
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true)
     {
         if (CheckEnabled() is { } disabled)
             return disabled;
 
         List<decimal> values = await _fhirQueryService.GetValuesByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex);
-        PlaintextStatisticsResult result = _statisticsService.Compute(values, threshold);
+        PlaintextStatisticsResult result = _statisticsService.Compute(values, threshold, includeStandardDeviation);
         return Ok(result);
     }
 
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true)
     {
         if (CheckEnabled() is { } disabled)
             return disabled;
 
         List<decimal> values = await _fhirQueryService.GetValuesByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex);
-        PlaintextStatisticsResult result = _statisticsService.Compute(values, threshold);
+        PlaintextStatisticsResult result = _statisticsService.Compute(values, threshold, includeStandardDeviation);
         return Ok(result);
     }
 
@@ -55,7 +55,7 @@ public class PlaintextStatisticsController : ControllerBase
     /// arithmetic as the encrypted path and returns the per-bin counts in the clear.
     /// </summary>
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByDateRange(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         if (CheckEnabled() is { } disabled)
             return disabled;
@@ -70,7 +70,7 @@ public class PlaintextStatisticsController : ControllerBase
     /// arithmetic as the encrypted path and returns the per-bin counts in the clear.
     /// </summary>
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal binStart, decimal binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount)
     {
         if (CheckEnabled() is { } disabled)
             return disabled;

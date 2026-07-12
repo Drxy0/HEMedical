@@ -18,15 +18,4 @@
     <ProjectReference Include="..\HEMedical.Shared\HEMedical.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="public.key">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-    <Content Include="secret.key">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-  </ItemGroup>
-
 </Project>

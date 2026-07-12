@@ -107,6 +107,7 @@ export class ClinicalQueryComponent {
       ageBucketSize: [10 as number, [Validators.min(1), Validators.max(150)]],
       dateBucketMonths: [12 as number],
       threshold: [null as number | null],
+      includeStandardDeviation: [true],
       binStart: [null as number | null],
       binWidth: [null as number | null],
       binCount: [10 as number | null, [Validators.min(1), Validators.max(512)]],
@@ -245,10 +246,11 @@ export class ClinicalQueryComponent {
     service: QueryHEService | QueryPlaintextService,
     query: MeasurementQuery,
   ): Observable<QueryResult> {
-    const { queryType, startDate, endDate, startAge, endAge, patientSex, threshold } =
+    const { queryType, startDate, endDate, startAge, endAge, patientSex, threshold, includeStandardDeviation } =
       this.form.getRawValue();
     const sex = patientSex ?? undefined;
     const thr = threshold ?? undefined;
+    const includeStdDev = includeStandardDeviation ?? true;
     return queryType === 'date'
       ? service.getStatisticsByDateRange(
           query.loincCode,
@@ -257,6 +259,7 @@ export class ClinicalQueryComponent {
           endDate ?? undefined,
           sex,
           thr,
+          includeStdDev,
         )
       : service.getStatisticsByAgeRange(
           query.loincCode,
@@ -265,6 +268,7 @@ export class ClinicalQueryComponent {
           endAge!,
           sex,
           thr,
+          includeStdDev,
         );
   }
 

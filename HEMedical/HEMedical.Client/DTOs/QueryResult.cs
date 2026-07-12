@@ -1,14 +1,15 @@
 namespace HEMedical.Client.DTOs;
 
 /// <summary>
-/// A decrypted statistics result for one measurement. <see cref="Value"/> is the mean
-/// (kept as the primary field for backward compatibility). Prevalence fields are populated
-/// only when the query supplied a threshold.
+/// A decrypted statistics result for one measurement. <see cref="Value"/> is the average
+/// (kept as the primary field for backward compatibility). <see cref="StdDev"/> is null when
+/// the query opted out of the standard deviation. Prevalence fields are populated only when
+/// the query supplied a threshold.
 /// </summary>
 public record QueryResult(
     string MeasurementName,
     double Value,
-    double StdDev,
+    double? StdDev,
     string UnitOfMeasurement,
     double Sum = 0,
     int Count = 0,

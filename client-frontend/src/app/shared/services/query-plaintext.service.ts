@@ -19,6 +19,7 @@ export class QueryPlaintextService {
     endDate?: string,
     sex?: PatientSex,
     threshold?: number,
+    includeStandardDeviation = true,
   ): Observable<QueryResult> {
     let params = new HttpParams().set('loincCode', loincCode);
     if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
@@ -26,6 +27,8 @@ export class QueryPlaintextService {
     if (endDate) params = params.set('endDate', endDate);
     if (sex) params = params.set('sex', sex);
     if (threshold != null) params = params.set('threshold', threshold);
+    // Omitted when true (the default) to keep the common-case URL clean.
+    if (!includeStandardDeviation) params = params.set('includeStandardDeviation', false);
     return this.http.get<QueryResult>('/api/verification/by-date', { params });
   }
 
@@ -36,6 +39,7 @@ export class QueryPlaintextService {
     endAge: number,
     sex?: PatientSex,
     threshold?: number,
+    includeStandardDeviation = true,
   ): Observable<QueryResult> {
     let params = new HttpParams()
       .set('loincCode', loincCode)
@@ -44,6 +48,7 @@ export class QueryPlaintextService {
     if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
     if (sex) params = params.set('sex', sex);
     if (threshold != null) params = params.set('threshold', threshold);
+    if (!includeStandardDeviation) params = params.set('includeStandardDeviation', false);
     return this.http.get<QueryResult>('/api/verification/by-age', { params });
   }
 

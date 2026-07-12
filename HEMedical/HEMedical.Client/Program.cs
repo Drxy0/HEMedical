@@ -14,7 +14,7 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.AddSingleton<IHEKeyService, HEKeyService>();
+builder.Services.AddSingleton<IHEKeyGeneratorService, HEKeyGeneratorService>();
 builder.Services.AddScoped<IStatisticsService, ClientStatisticsService>();
 builder.Services.AddHttpClient<IHEServerClient, HEServerClient>(client =>
 {
@@ -50,7 +50,7 @@ builder.Services.AddHttpClient<ILoincVerificationService, LoincVerificationServi
 
 var app = builder.Build();
 
-app.Services.GetRequiredService<IHEKeyService>();
+app.Services.GetRequiredService<IHEKeyGeneratorService>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
