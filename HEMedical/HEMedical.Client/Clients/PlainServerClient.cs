@@ -20,11 +20,11 @@ public class PlainServerClient : IPlainServerClient
     public Task<PlaintextStatisticsResult?> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation) =>
         GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByAge("api/query/by-age", loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation));
 
-    public Task<PlaintextStatisticsResult?> GetBucketAverageByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex) =>
-        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByAge("api/query/by-age", loincCode, componentLoincCode, startAge, endAge, sex, threshold: null, includeStandardDeviation: true));
+    public Task<PlaintextStatisticsResult?> GetBucketAverageByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, bool includeStandardDeviation) =>
+        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByAge("api/query/by-age", loincCode, componentLoincCode, startAge, endAge, sex, threshold: null, includeStandardDeviation));
 
-    public Task<PlaintextStatisticsResult?> GetBucketAverageByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex) =>
-        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByDate("api/query/by-date", loincCode, componentLoincCode, startDate, endDate, sex, threshold: null, includeStandardDeviation: true));
+    public Task<PlaintextStatisticsResult?> GetBucketAverageByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, bool includeStandardDeviation) =>
+        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByDate("api/query/by-date", loincCode, componentLoincCode, startDate, endDate, sex, threshold: null, includeStandardDeviation));
 
     public Task<double[]?> GetHistogramByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount) =>
         GetAsync<double[]>(StatisticsQueryString.HistogramByDate("api/query/histogram-by-date", loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount));

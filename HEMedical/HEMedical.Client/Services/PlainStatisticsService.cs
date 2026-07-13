@@ -57,27 +57,27 @@ internal class PlainStatisticsService : IPlainStatisticsService
         return await ExecuteAsync(verification.Value!, threshold, Fetch);
     }
 
-    public async Task<Result<BreakdownResult>> GetBreakdownByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex)
+    public async Task<Result<BreakdownResult>> GetBreakdownByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex, bool includeStandardDeviation)
     {
         var buckets = BreakdownBuckets.ForAge(startAge, endAge, bucketSize, _maxBuckets);
         if (!buckets.IsSuccess)
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
         Task<PlaintextStatisticsResult?> Fetch(BreakdownBuckets.AgeBucket b) =>
-            _plainServerClient.GetBucketAverageByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex);
+            _plainServerClient.GetBucketAverageByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex, includeStandardDeviation);
 
         return await RunBreakdownAsync(loincCode, componentLoincCode,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);
     }
 
-    public async Task<Result<BreakdownResult>> GetBreakdownByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex)
+    public async Task<Result<BreakdownResult>> GetBreakdownByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex, bool includeStandardDeviation)
     {
         var buckets = BreakdownBuckets.ForDate(startDate, endDate, bucketMonths, _maxBuckets);
         if (!buckets.IsSuccess)
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
         Task<PlaintextStatisticsResult?> Fetch(BreakdownBuckets.DateBucket b) =>
-            _plainServerClient.GetBucketAverageByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex);
+            _plainServerClient.GetBucketAverageByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex, includeStandardDeviation);
 
         return await RunBreakdownAsync(loincCode, componentLoincCode,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);

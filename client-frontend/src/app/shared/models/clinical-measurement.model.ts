@@ -62,6 +62,7 @@ export interface QueryResult {
   /** Null when the query opted out of the standard deviation. */
   standardDeviation: number | null;
   unitOfMeasurement: string;
+  patientCount: number;
   threshold: number | null;
   countAboveThreshold: number | null;
   prevalenceAboveThreshold: number | null;
@@ -71,7 +72,8 @@ export interface QueryResult {
 export interface BreakdownBucket {
   label: string;
   average: number;
-  standardDeviation: number;
+  /** Null when the breakdown opted out of the standard deviation (no ±1σ whisker drawn). */
+  standardDeviation: number | null;
   hasData: boolean;
 }
 

@@ -59,6 +59,7 @@ export class QueryHEService {
     endAge: number,
     bucketSize: number,
     sex?: PatientSex,
+    includeStandardDeviation = false,
   ): Observable<BreakdownResult> {
     let params = new HttpParams()
       .set('loincCode', loincCode)
@@ -67,6 +68,7 @@ export class QueryHEService {
       .set('bucketSize', bucketSize);
     if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
     if (sex) params = params.set('sex', sex);
+    if (includeStandardDeviation) params = params.set('includeStandardDeviation', true);
     return this.http.get<BreakdownResult>('/api/statistics/breakdown-by-age', { params });
   }
 
@@ -77,6 +79,7 @@ export class QueryHEService {
     endDate: string,
     bucketMonths: number,
     sex?: PatientSex,
+    includeStandardDeviation = false,
   ): Observable<BreakdownResult> {
     let params = new HttpParams()
       .set('loincCode', loincCode)
@@ -85,6 +88,7 @@ export class QueryHEService {
       .set('bucketMonths', bucketMonths);
     if (componentLoincCode) params = params.set('componentLoincCode', componentLoincCode);
     if (sex) params = params.set('sex', sex);
+    if (includeStandardDeviation) params = params.set('includeStandardDeviation', true);
     return this.http.get<BreakdownResult>('/api/statistics/breakdown-by-date', { params });
   }
   getHistogramByDateRange(

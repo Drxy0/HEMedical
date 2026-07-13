@@ -300,8 +300,10 @@ export class ClinicalQueryComponent {
       ageBucketSize,
       dateBucketMonths,
       patientSex,
+      includeStandardDeviation,
     } = this.form.getRawValue();
     const sex = patientSex ?? undefined;
+    const includeStdDev = includeStandardDeviation ?? false;
 
     loading.set(true);
     error.set(null);
@@ -316,6 +318,7 @@ export class ClinicalQueryComponent {
             endDate!,
             dateBucketMonths!,
             sex,
+            includeStdDev,
           )
         : service.getBreakdownByAge(
             query.loincCode,
@@ -324,6 +327,7 @@ export class ClinicalQueryComponent {
             endAge!,
             ageBucketSize!,
             sex,
+            includeStdDev,
           );
 
     request$

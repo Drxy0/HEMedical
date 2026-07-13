@@ -41,9 +41,9 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// group of <paramref name="bucketSize"/> years and returns one bar per group.
     /// </summary>
     [HttpGet("breakdown-by-age")]
-    public async Task<IActionResult> GetBreakdownByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex)
+    public async Task<IActionResult> GetBreakdownByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex, bool includeStandardDeviation = false)
     {
-        var result = await _statService.GetBreakdownByAgeAsync(loincCode, componentLoincCode, startAge, endAge, bucketSize, sex);
+        var result = await _statService.GetBreakdownByAgeAsync(loincCode, componentLoincCode, startAge, endAge, bucketSize, sex, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 
@@ -52,9 +52,9 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// of <paramref name="bucketMonths"/> months and returns one bar per period.
     /// </summary>
     [HttpGet("breakdown-by-date")]
-    public async Task<IActionResult> GetBreakdownByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex)
+    public async Task<IActionResult> GetBreakdownByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex, bool includeStandardDeviation = false)
     {
-        var result = await _statService.GetBreakdownByDateAsync(loincCode, componentLoincCode, startDate, endDate, bucketMonths, sex);
+        var result = await _statService.GetBreakdownByDateAsync(loincCode, componentLoincCode, startDate, endDate, bucketMonths, sex, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 

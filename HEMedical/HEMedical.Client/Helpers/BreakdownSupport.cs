@@ -122,10 +122,11 @@ internal static class Breakdown
         {
             Result<QueryResult> r = results[i];
             if (r.IsSuccess)
-                // Breakdown buckets never opt out of the standard deviation, so this is always present.
-                buckets.Add(new BreakdownBucket(labels[i], r.Value!.Value, r.Value.StdDev ?? 0, HasData: true));
+                // StandardDeviation is null when the query opted out of the standard deviation —
+                // the chart then draws no ±1σ whisker for this bar.
+                buckets.Add(new BreakdownBucket(labels[i], r.Value!.Value, r.Value.StandardDeviation, HasData: true));
             else if (r.Kind == ErrorKind.NotFound)
-                buckets.Add(new BreakdownBucket(labels[i], 0, 0, HasData: false));
+                buckets.Add(new BreakdownBucket(labels[i], 0, null, HasData: false));
             else
                 return Result<BreakdownResult>.Fail(r.Error!, r.Kind);
         }

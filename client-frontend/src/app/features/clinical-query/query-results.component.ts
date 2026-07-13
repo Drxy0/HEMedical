@@ -5,23 +5,12 @@ import {
   HistogramResult,
   QueryResult,
 } from '../../shared/models/clinical-measurement.model';
-import { StatisticsChartComponent } from './statistics-chart.component';
 import { BreakdownChartComponent } from './breakdown-chart.component';
 import { HistogramChartComponent } from './histogram-chart.component';
 
-/**
- * Presentational component for the query output: error banners, a loading spinner, and the
- * summary / breakdown / histogram result cards for the HE and plaintext paths. All state is
- * passed in as signal inputs by the parent query form; this component holds none of its own.
- */
 @Component({
   selector: 'app-query-results',
-  imports: [
-    DecimalPipe,
-    StatisticsChartComponent,
-    BreakdownChartComponent,
-    HistogramChartComponent,
-  ],
+  imports: [DecimalPipe, BreakdownChartComponent, HistogramChartComponent],
   templateUrl: './query-results.component.html',
   styleUrl: './query-results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,7 +27,6 @@ export class QueryResultsComponent {
   readonly heHistogram = input<HistogramResult | null>(null);
   readonly plaintextHistogram = input<HistogramResult | null>(null);
 
-  /** True while there is nothing to show yet — drives the placeholder (wide screens only). */
   readonly showPlaceholder = computed(
     () =>
       !this.isLoadingHE() &&

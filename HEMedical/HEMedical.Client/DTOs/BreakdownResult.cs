@@ -1,11 +1,13 @@
 namespace HEMedical.Client.DTOs;
 
 /// <summary>
-/// One bar of a breakdown chart: the average (and its standard deviation) of a measurement
-/// for one bucket — an age group or a time period. <paramref name="HasData"/> is false
-/// when no patient fell into the bucket, so the frontend can render a gap.
+/// One bar of a breakdown chart: the average (and, when requested, its standard deviation) of a
+/// measurement for one bucket — an age group or a time period. <paramref name="StandardDeviation"/>
+/// is null when the query opted out of the standard deviation, so no ±1σ whisker is drawn.
+/// <paramref name="HasData"/> is false when no patient fell into the bucket, so the frontend can
+/// render a gap.
 /// </summary>
-public record BreakdownBucket(string Label, double Average, double StdDev, bool HasData);
+public record BreakdownBucket(string Label, double Average, double? StandardDeviation, bool HasData);
 
 /// <summary>
 /// A breakdown chart built by running the ordinary average query once per bucket.

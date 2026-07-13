@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartConfiguration, ChartData } from 'chart.js';
 import { BreakdownResult } from '../../shared/models/clinical-measurement.model';
-import { errorBarsPlugin, SigmaDatasetProps } from './statistics-chart.component';
+import { errorBarsPlugin, SigmaDatasetProps } from './error-bars.plugin';
 
 /**
  * Grouped bar chart of a breakdown: one category per bucket (age group or time period),
@@ -72,14 +72,15 @@ export class BreakdownChartComponent {
 
     const build = (
       result: BreakdownResult | null,
-      label: string,
+      baseLabel: string,
       fill: string,
       whisker: string,
     ) => {
       if (!result) return;
+      const hasSigma = result.buckets.some((b) => b.hasData && b.standardDeviation !== null);
       const byLabel = new Map(result.buckets.map((b) => [b.label, b]));
       datasets.push({
-        label,
+        label: hasSigma ? `${baseLabel} (±1σ)` : baseLabel,
         data: labels.map((l) => (byLabel.get(l)?.hasData ? byLabel.get(l)!.average : null)),
         backgroundColor: fill,
         standardDeviations: labels.map((l) =>
@@ -89,8 +90,8 @@ export class BreakdownChartComponent {
       } as ChartData<'bar', (number | null)[]>['datasets'][number]);
     };
 
-    build(this.heResult(), 'HE (±1σ)', 'rgba(37, 99, 235, 0.75)', '#1e3a8a');
-    build(this.plaintextResult(), 'Plaintext (±1σ)', 'rgba(22, 163, 74, 0.75)', '#14532d');
+    build(this.heResult(), 'HE', 'rgba(37, 99, 235, 0.75)', '#1e3a8a');
+    build(this.plaintextResult(), 'Plaintext', 'rgba(22, 163, 74, 0.75)', '#14532d');
 
     return { labels, datasets };
   });
@@ -101,7 +102,7 @@ export class BreakdownChartComponent {
       ...(this.plaintextResult()?.buckets ?? []),
     ].filter((b) => b.hasData);
     if (!buckets.length) return undefined;
-    return Math.max(...buckets.map((b) => b.average + b.standardDeviation)) * 1.1;
+    return Math.max(...buckets.map((b) => b.average + (b.standardDeviation ?? 0))) * 1.1;
   });
 
   readonly chartOptions = computed<ChartConfiguration<'bar'>['options']>(() => {

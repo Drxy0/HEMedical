@@ -40,17 +40,17 @@ public class VerificationController : ControllerBase
 
     /// <summary>Plaintext counterpart of the HE age-group breakdown, for verification.</summary>
     [HttpGet("breakdown-by-age")]
-    public async Task<IActionResult> GetPlainBreakdownByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex)
+    public async Task<IActionResult> GetPlainBreakdownByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex, bool includeStandardDeviation = false)
     {
-        var result = await _plainStatService.GetBreakdownByAgeAsync(loincCode, componentLoincCode, startAge, endAge, bucketSize, sex);
+        var result = await _plainStatService.GetBreakdownByAgeAsync(loincCode, componentLoincCode, startAge, endAge, bucketSize, sex, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 
     /// <summary>Plaintext counterpart of the HE time-period breakdown, for verification.</summary>
     [HttpGet("breakdown-by-date")]
-    public async Task<IActionResult> GetPlainBreakdownByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex)
+    public async Task<IActionResult> GetPlainBreakdownByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex, bool includeStandardDeviation = false)
     {
-        var result = await _plainStatService.GetBreakdownByDateAsync(loincCode, componentLoincCode, startDate, endDate, bucketMonths, sex);
+        var result = await _plainStatService.GetBreakdownByDateAsync(loincCode, componentLoincCode, startDate, endDate, bucketMonths, sex, includeStandardDeviation);
         return this.ToActionResult(result);
     }
 

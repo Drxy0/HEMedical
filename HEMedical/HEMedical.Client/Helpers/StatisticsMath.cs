@@ -41,6 +41,7 @@ internal static class StatisticsMath
 
         return new QueryResult(
             codeInfo.DisplayName, average, stdDev, codeInfo.Unit,
+            PatientCount: (int)Math.Round(n),
             Threshold: thresholdValue, CountAboveThreshold: countAbove, PrevalenceAboveThreshold: prevalence);
     }
 }

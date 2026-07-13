@@ -4,7 +4,7 @@ import { provideHttpClient, withFetch } from '@angular/common/http';
 
 import { routes } from './app.routes';
 
-// Chart.js registration lives in StatisticsChartComponent (lazy route),
+// Chart.js registration lives in the chart components (breakdown/histogram, lazy route),
 // keeping the chart library out of the initial bundle.
 export const appConfig: ApplicationConfig = {
   providers: [

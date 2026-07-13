@@ -28,12 +28,13 @@
                   ± {{ he.standardDeviation | number: '1.2-2' }}
                 }
                 {{ he.unitOfMeasurement }}
-                @if (he.prevalenceAboveThreshold !== null) {
-                  <span class="result-detail">
-                    {{ he.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                <span class="result-detail">
+                  n = {{ he.patientCount }}
+                  @if (he.prevalenceAboveThreshold !== null) {
+                    · {{ he.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
                     {{ he.threshold }} ({{ he.countAboveThreshold }})
-                  </span>
-                }
+                  }
+                </span>
               </dd>
             </div>
           }
@@ -48,19 +49,18 @@
                   ± {{ pt.standardDeviation | number: '1.2-2' }}
                 }
                 {{ pt.unitOfMeasurement }}
-                @if (pt.prevalenceAboveThreshold !== null) {
-                  <span class="result-detail">
-                    {{ pt.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                <span class="result-detail">
+                  n = {{ pt.patientCount }}
+                  @if (pt.prevalenceAboveThreshold !== null) {
+                    · {{ pt.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
                     {{ pt.threshold }} ({{ pt.countAboveThreshold }})
-                  </span>
-                }
+                  }
+                </span>
               </dd>
             </div>
           }
         }
       </dl>
-
-      <app-statistics-chart [heResults]="heResult()" [plaintextResults]="plaintextResult()" />
     </section>
   }
 

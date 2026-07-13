@@ -209,7 +209,7 @@
           <legend>Result Type</legend>
           <label class="radio-label">
             <input type="radio" formControlName="resultType" value="summary" />
-            Summary (single average)
+            Average
           </label>
           <label class="radio-label">
             <input type="radio" formControlName="resultType" value="breakdown" />
@@ -236,17 +236,6 @@
               Optional — also report the fraction of patients at or above this value.
             </span>
           </div>
-
-          <div class="field">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
-                formControlName="includeStandardDeviation"
-                aria-describedby="includeStandardDeviation-hint"
-              />
-              Include standard deviation
-            </label>
-          </div>
         }
 
         @if (isBreakdown()) {
@@ -271,6 +260,15 @@
               />
             </div>
           }
+        }
+
+        @if (isSummary() || isBreakdown()) {
+          <div class="field">
+            <label class="checkbox-label">
+              <input type="checkbox" formControlName="includeStandardDeviation" />
+              Include standard deviation
+            </label>
+          </div>
         }
 
         @if (isHistogram()) {
