@@ -17,7 +17,7 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// (fraction of patients at or above it). Codes are verified against the online LOINC service first.
     /// </summary>
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold = null, bool includeStandardDeviation)
+    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold = null, bool includeStandardDeviation = false)
     {
         var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation);
         return this.ToActionResult(result);
@@ -30,7 +30,7 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// threshold to also get the prevalence at or above it.
     /// </summary>
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold = null, bool includeStandardDeviation)
+    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold = null, bool includeStandardDeviation = false)
     {
         var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation);
         return this.ToActionResult(result);

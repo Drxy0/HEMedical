@@ -13,10 +13,9 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { EMPTY, forkJoin, Observable } from 'rxjs';
+import { EMPTY, Observable } from 'rxjs';
 import { catchError, finalize, map } from 'rxjs/operators';
 import {
   BreakdownResult,
@@ -29,19 +28,15 @@ import {
 } from '../../shared/models/clinical-measurement.model';
 import { QueryHEService } from '../../shared/services/query-he.service';
 import { QueryPlaintextService } from '../../shared/services/query-plaintext.service';
-import { StatisticsChartComponent } from './statistics-chart.component';
-import { BreakdownChartComponent } from './breakdown-chart.component';
-import { HistogramChartComponent } from './histogram-chart.component';
+import { QueryResultsComponent } from './query-results.component';
 
 type QueryType = 'date' | 'age';
 type ResultType = 'summary' | 'breakdown' | 'histogram';
 
-const CUSTOM_LOINC = 'custom' as const;
-
 /** LOINC codes are digits, a hyphen, and a single check digit (e.g. 4548-4). */
 const LOINC_CODE_PATTERN = /^\d+-\d$/;
 
-/** Cross-field validation: the required range for the chosen query type, plus LOINC code formats in custom mode. */
+/** Cross-field validation: the LOINC codes plus the required range for the chosen query type. */
 function validateQueryForm(group: AbstractControl): ValidationErrors | null {
   const errors: ValidationErrors = {};
   const queryType = group.get('queryType')?.value;
@@ -63,27 +58,21 @@ function validateQueryForm(group: AbstractControl): ValidationErrors | null {
     if (binStart == null || binWidth == null || binCount == null) errors['binsRequired'] = true;
     else if (binWidth <= 0 || binCount < 1 || binCount > 512) errors['binsInvalid'] = true;
   }
-  if (group.get('measurementSelection')?.value === CUSTOM_LOINC) {
-    const code = ((group.get('loincCode')?.value as string | null) ?? '').trim();
-    if (!code) errors['loincRequired'] = true;
-    else if (!LOINC_CODE_PATTERN.test(code)) errors['loincInvalid'] = true;
 
-    const componentCode = ((group.get('componentLoincCode')?.value as string | null) ?? '').trim();
-    if (componentCode && !LOINC_CODE_PATTERN.test(componentCode))
-      errors['componentLoincInvalid'] = true;
-  }
+  const code = ((group.get('loincCode')?.value as string | null) ?? '').trim();
+  if (!code) errors['loincRequired'] = true;
+  else if (!LOINC_CODE_PATTERN.test(code)) errors['loincInvalid'] = true;
+
+  const componentCode = ((group.get('componentLoincCode')?.value as string | null) ?? '').trim();
+  if (componentCode && !LOINC_CODE_PATTERN.test(componentCode))
+    errors['componentLoincInvalid'] = true;
+
   return Object.keys(errors).length ? errors : null;
 }
 
 @Component({
   selector: 'app-clinical-query',
-  imports: [
-    ReactiveFormsModule,
-    DecimalPipe,
-    StatisticsChartComponent,
-    BreakdownChartComponent,
-    HistogramChartComponent,
-  ],
+  imports: [ReactiveFormsModule, QueryResultsComponent],
   templateUrl: './clinical-query.component.html',
   styleUrl: './clinical-query.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -95,7 +84,6 @@ export class ClinicalQueryComponent {
 
   readonly form = this.fb.group(
     {
-      measurementSelection: [MEASUREMENT_PRESETS[0].id, Validators.required],
       loincCode: [null as string | null],
       componentLoincCode: [null as string | null],
       resultType: ['summary' as ResultType],
@@ -107,7 +95,7 @@ export class ClinicalQueryComponent {
       ageBucketSize: [10 as number, [Validators.min(1), Validators.max(150)]],
       dateBucketMonths: [12 as number],
       threshold: [null as number | null],
-      includeStandardDeviation: [true],
+      includeStandardDeviation: [false],
       binStart: [null as number | null],
       binWidth: [null as number | null],
       binCount: [10 as number | null, [Validators.min(1), Validators.max(512)]],
@@ -128,13 +116,6 @@ export class ClinicalQueryComponent {
   readonly isHistogram = computed(() => this.resultType() === 'histogram');
   readonly isSummary = computed(() => this.resultType() === 'summary');
 
-  private readonly measurementSelection = toSignal(
-    this.form.controls.measurementSelection.valueChanges,
-    { initialValue: MEASUREMENT_PRESETS[0].id },
-  );
-
-  readonly isCustomLoinc = computed(() => this.measurementSelection() === CUSTOM_LOINC);
-
   readonly isLoadingHE = signal(false);
   readonly isLoadingPlaintext = signal(false);
   readonly submitted = signal(false);
@@ -147,37 +128,34 @@ export class ClinicalQueryComponent {
   readonly heHistogram = signal<HistogramResult | null>(null);
   readonly plaintextHistogram = signal<HistogramResult | null>(null);
 
-  /** True while the results panel has nothing to show (only rendered on wide screens). */
-  readonly showResultsPlaceholder = computed(
-    () =>
-      !this.isLoadingHE() &&
-      !this.isLoadingPlaintext() &&
-      this.heResult() === null &&
-      this.plaintextResult() === null &&
-      this.heBreakdown() === null &&
-      this.plaintextBreakdown() === null &&
-      this.heHistogram() === null &&
-      this.plaintextHistogram() === null &&
-      !this.heError() &&
-      !this.plaintextError(),
-  );
-
   readonly groupByOptions = [
     { value: 12, label: 'Year' },
     { value: 3, label: 'Quarter' },
     { value: 1, label: 'Month' },
   ];
 
-  readonly measurementOptions = [
-    ...MEASUREMENT_PRESETS.map((p) => ({ value: p.id, label: p.label })),
-    { value: CUSTOM_LOINC, label: 'Custom LOINC code…' },
-  ];
+  /**
+   * Example measurements offered by the "fill from example" dropdown. The presets are
+   * flattened to individual codes, since the form now describes one measurement at a time.
+   */
+  readonly presetFills: MeasurementQuery[] = MEASUREMENT_PRESETS.flatMap((p) => p.queries);
 
   readonly sexOptions = [
     { value: PatientSex.Male, label: SEX_LABELS[PatientSex.Male] },
     { value: PatientSex.Female, label: SEX_LABELS[PatientSex.Female] },
     { value: PatientSex.Other, label: SEX_LABELS[PatientSex.Other] },
   ];
+
+  /** Fills the LOINC code fields from the chosen example measurement (a convenience only). */
+  applyPreset(index: string): void {
+    if (index === '') return;
+    const query = this.presetFills[Number(index)];
+    if (!query) return;
+    this.form.patchValue({
+      loincCode: query.loincCode,
+      componentLoincCode: query.componentLoincCode ?? null,
+    });
+  }
 
   onQueryHE(): void {
     this.clearHe();
@@ -225,32 +203,32 @@ export class ClinicalQueryComponent {
     this.plaintextHistogram.set(null);
   }
 
-  /** Resolves the selected preset (or the custom inputs) into the backend queries to run. */
-  private buildQueries(): MeasurementQuery[] {
-    const { measurementSelection, loincCode, componentLoincCode } = this.form.getRawValue();
-
-    if (measurementSelection === CUSTOM_LOINC) {
-      const componentCode = componentLoincCode?.trim();
-      return [
-        {
-          loincCode: loincCode!.trim(),
-          componentLoincCode: componentCode ? componentCode : undefined,
-        },
-      ];
-    }
-
-    return MEASUREMENT_PRESETS.find((p) => p.id === measurementSelection)?.queries ?? [];
+  /** The single measurement described by the LOINC inputs, or null if no code was entered. */
+  private currentQuery(): MeasurementQuery | null {
+    const { loincCode, componentLoincCode } = this.form.getRawValue();
+    const code = loincCode?.trim();
+    if (!code) return null;
+    const componentCode = componentLoincCode?.trim();
+    return { loincCode: code, componentLoincCode: componentCode ? componentCode : undefined };
   }
 
   private buildRequest(
     service: QueryHEService | QueryPlaintextService,
     query: MeasurementQuery,
   ): Observable<QueryResult> {
-    const { queryType, startDate, endDate, startAge, endAge, patientSex, threshold, includeStandardDeviation } =
-      this.form.getRawValue();
+    const {
+      queryType,
+      startDate,
+      endDate,
+      startAge,
+      endAge,
+      patientSex,
+      threshold,
+      includeStandardDeviation,
+    } = this.form.getRawValue();
     const sex = patientSex ?? undefined;
     const thr = threshold ?? undefined;
-    const includeStdDev = includeStandardDeviation ?? true;
+    const includeStdDev = includeStandardDeviation ?? false;
     return queryType === 'date'
       ? service.getStatisticsByDateRange(
           query.loincCode,
@@ -281,19 +259,16 @@ export class ClinicalQueryComponent {
     this.submitted.set(true);
     if (this.form.invalid) return;
 
-    const queries = this.buildQueries();
-    if (!queries.length) return;
+    const query = this.currentQuery();
+    if (!query) return;
 
     loading.set(true);
     error.set(null);
     result.set(null);
 
-    forkJoin(
-      queries.map((q) =>
-        this.buildRequest(service, q).pipe(map((r) => this.applyDisplayOverrides(q, r))),
-      ),
-    )
+    this.buildRequest(service, query)
       .pipe(
+        map((r) => [r]),
         catchError((err: unknown) => {
           error.set(this.extractErrorMessage(err));
           return EMPTY;
@@ -303,11 +278,7 @@ export class ClinicalQueryComponent {
       .subscribe((results) => result.set(results));
   }
 
-  /**
-   * Breakdown mode: fan out the ordinary average query over buckets. Uses the first
-   * measurement of the selection (e.g. systolic for the blood-pressure preset), since a
-   * breakdown plots one measurement across many buckets.
-   */
+  /** Breakdown mode: fan the ordinary average query out over buckets for the queried measurement. */
   private runBreakdown(
     service: QueryHEService | QueryPlaintextService,
     loading: WritableSignal<boolean>,
@@ -317,11 +288,19 @@ export class ClinicalQueryComponent {
     this.submitted.set(true);
     if (this.form.invalid) return;
 
-    const query = this.buildQueries()[0];
+    const query = this.currentQuery();
     if (!query) return;
 
-    const { queryType, startDate, endDate, startAge, endAge, ageBucketSize, dateBucketMonths, patientSex } =
-      this.form.getRawValue();
+    const {
+      queryType,
+      startDate,
+      endDate,
+      startAge,
+      endAge,
+      ageBucketSize,
+      dateBucketMonths,
+      patientSex,
+    } = this.form.getRawValue();
     const sex = patientSex ?? undefined;
 
     loading.set(true);
@@ -349,7 +328,6 @@ export class ClinicalQueryComponent {
 
     request$
       .pipe(
-        map((r) => (query.label ? { ...r, measurementName: query.label } : r)),
         catchError((err: unknown) => {
           error.set(this.extractErrorMessage(err));
           return EMPTY;
@@ -361,8 +339,7 @@ export class ClinicalQueryComponent {
 
   /**
    * Frequency histogram mode: one round trip carrying the whole histogram (unlike the
-   * breakdown, which is one query per bucket). Uses the first measurement of the selection,
-   * since a histogram plots the value distribution of one measurement.
+   * breakdown, which is one query per bucket).
    */
   private runHistogram(
     service: QueryHEService | QueryPlaintextService,
@@ -373,7 +350,7 @@ export class ClinicalQueryComponent {
     this.submitted.set(true);
     if (this.form.invalid) return;
 
-    const query = this.buildQueries()[0];
+    const query = this.currentQuery();
     if (!query) return;
 
     const { queryType, startDate, endDate, startAge, endAge, binStart, binWidth, binCount, patientSex } =
@@ -409,7 +386,6 @@ export class ClinicalQueryComponent {
 
     request$
       .pipe(
-        map((r) => (query.label ? { ...r, measurementName: query.label } : r)),
         catchError((err: unknown) => {
           error.set(this.extractErrorMessage(err));
           return EMPTY;
@@ -417,15 +393,6 @@ export class ClinicalQueryComponent {
         finalize(() => loading.set(false)),
       )
       .subscribe((r) => result.set(r));
-  }
-
-  /** Preset labels/units win over the backend-provided ones; custom queries keep the backend's. */
-  private applyDisplayOverrides(query: MeasurementQuery, result: QueryResult): QueryResult {
-    return {
-      ...result,
-      measurementName: query.label ?? result.measurementName,
-      unitOfMeasurement: query.unit ?? result.unitOfMeasurement,
-    };
   }
 
   private extractErrorMessage(err: unknown): string {

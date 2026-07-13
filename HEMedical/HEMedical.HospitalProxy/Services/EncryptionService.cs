@@ -14,7 +14,7 @@ public class EncryptionService : IEncryptionService
         _keyService = keyService;
     }
 
-    public EncryptedStatisticsResult Encrypt(List<decimal> values, decimal? threshold = null, bool includeStandardDeviation = true)
+    public EncryptedStatisticsResult Encrypt(List<decimal> values, decimal? threshold = null, bool includeStandardDeviation = false)
     {
         // Unreachable in practice: the controllers gate every request behind the key-sync
         // check (503/409) before encrypting. Degenerate empty vectors, never a throw.

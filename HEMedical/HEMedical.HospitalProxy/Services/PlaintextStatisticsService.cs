@@ -13,7 +13,7 @@ namespace HEMedical.HospitalProxy.Services;
 /// </summary>
 public class PlaintextStatisticsService : IPlaintextStatisticsService
 {
-    public PlaintextStatisticsResult Compute(List<decimal> values, decimal? threshold = null, bool includeStandardDeviation = true)
+    public PlaintextStatisticsResult Compute(List<decimal> values, decimal? threshold = null, bool includeStandardDeviation = false)
     {
         // Power 1 gives the client Σx, from which it derives the average. The count is Σ1.
         double valuesSum = BuildPowerSum(values, 1);

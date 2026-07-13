@@ -1,0 +1,84 @@
+<div aria-live="assertive" aria-atomic="true" class="error-region">
+  @if (heError()) {
+    <p class="error"><strong>HE Query:</strong> {{ heError() }}</p>
+  }
+  @if (plaintextError()) {
+    <p class="error"><strong>Plaintext Query:</strong> {{ plaintextError() }}</p>
+  }
+</div>
+
+<div aria-live="polite" aria-atomic="true" class="results-region">
+  @if (isLoadingHE() || isLoadingPlaintext()) {
+    <div class="spinner-wrapper" role="status" aria-label="Loading results">
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+  }
+
+  @if (heResult() !== null || plaintextResult() !== null) {
+    <section class="results">
+      <h2>Results</h2>
+      <dl>
+        @if (heResult(); as heItems) {
+          @for (he of heItems; track he.measurementName) {
+            <div class="result-row">
+              <dt>{{ he.measurementName }} (HE)</dt>
+              <dd>
+                {{ he.value | number: '1.2-2' }}
+                @if (he.standardDeviation !== null) {
+                  ± {{ he.standardDeviation | number: '1.2-2' }}
+                }
+                {{ he.unitOfMeasurement }}
+                @if (he.prevalenceAboveThreshold !== null) {
+                  <span class="result-detail">
+                    {{ he.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                    {{ he.threshold }} ({{ he.countAboveThreshold }})
+                  </span>
+                }
+              </dd>
+            </div>
+          }
+        }
+        @if (plaintextResult(); as ptItems) {
+          @for (pt of ptItems; track pt.measurementName) {
+            <div class="result-row">
+              <dt>{{ pt.measurementName }} (Plaintext)</dt>
+              <dd>
+                {{ pt.value | number: '1.2-2' }}
+                @if (pt.standardDeviation !== null) {
+                  ± {{ pt.standardDeviation | number: '1.2-2' }}
+                }
+                {{ pt.unitOfMeasurement }}
+                @if (pt.prevalenceAboveThreshold !== null) {
+                  <span class="result-detail">
+                    {{ pt.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                    {{ pt.threshold }} ({{ pt.countAboveThreshold }})
+                  </span>
+                }
+              </dd>
+            </div>
+          }
+        }
+      </dl>
+
+      <app-statistics-chart [heResults]="heResult()" [plaintextResults]="plaintextResult()" />
+    </section>
+  }
+
+  @if (heBreakdown() !== null || plaintextBreakdown() !== null) {
+    <section class="results">
+      <h2>Breakdown</h2>
+      <app-breakdown-chart [heResult]="heBreakdown()" [plaintextResult]="plaintextBreakdown()" />
+    </section>
+  }
+
+  @if (heHistogram() !== null || plaintextHistogram() !== null) {
+    <section class="results">
+      <h2>Histogram</h2>
+      <app-histogram-chart [heResult]="heHistogram()" [plaintextResult]="plaintextHistogram()" />
+    </section>
+  }
+
+  @if (showPlaceholder()) {
+    <p class="results-placeholder">Run a query to see results here.</p>
+  }
+</div>

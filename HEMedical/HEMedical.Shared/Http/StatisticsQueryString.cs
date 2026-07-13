@@ -20,7 +20,7 @@ public static class StatisticsQueryString
         return url.ToString();
     }
 
-    public static string ByAge(string path, string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation = true)
+    public static string ByAge(string path, string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation = false)
     {
         var url = new StringBuilder($"{path}?loincCode={Uri.EscapeDataString(loincCode)}&startAge={startAge}&endAge={endAge}");
         AppendCommon(url, componentLoincCode, sex, threshold, includeStandardDeviation);
@@ -49,9 +49,10 @@ public static class StatisticsQueryString
             url.Append($"&sex={sex.Value}");
         if (threshold.HasValue)
             url.Append($"&threshold={threshold.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
-        // Omitted when true (the default) so the common case doesn't grow every URL.
-        if (!includeStandardDeviation)
-            url.Append("&includeStandardDeviation=false");
+        // The standard deviation is opt-in (off by default), so it is only sent when requested;
+        // an absent parameter means false at every receiver.
+        if (includeStandardDeviation)
+            url.Append("&includeStandardDeviation=true");
     }
 
     // The bin layout travels with the query so every hospital bins identically —

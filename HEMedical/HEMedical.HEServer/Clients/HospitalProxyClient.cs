@@ -14,10 +14,10 @@ public class HospitalProxyClient : IHospitalProxyClient
         _httpClient = httpClient;
     }
 
-    public Task<EncryptedStatisticsResult?> GetByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true) =>
+    public Task<EncryptedStatisticsResult?> GetByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly? startDate, DateOnly? endDate, PatientSex? sex, double? threshold = null, bool includeStandardDeviation = false) =>
         GetAsync<EncryptedStatisticsResult>(StatisticsQueryString.ByDate("api/statistics/by-date", loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation));
 
-    public Task<EncryptedStatisticsResult?> GetByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, decimal? threshold = null, bool includeStandardDeviation = true) =>
+    public Task<EncryptedStatisticsResult?> GetByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold = null, bool includeStandardDeviation = false) =>
         GetAsync<EncryptedStatisticsResult>(StatisticsQueryString.ByAge("api/statistics/by-age", loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation));
 
     public Task<byte[]?> GetHistogramByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount) =>

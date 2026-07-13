@@ -5,7 +5,7 @@ import { QueryResult } from '../../shared/models/clinical-measurement.model';
 
 /** Custom per-dataset properties consumed by the error-bar plugin. */
 export interface SigmaDatasetProps {
-  stdDevs?: (number | null)[];
+  standardDeviations?: (number | null)[];
   whiskerColor?: string;
 }
 
@@ -21,15 +21,15 @@ export const errorBarsPlugin: Plugin<'bar'> = {
     if (!yScale) return;
 
     chart.data.datasets.forEach((dataset, datasetIndex) => {
-      const { stdDevs, whiskerColor } = dataset as SigmaDatasetProps;
-      if (!stdDevs) return;
+      const { standardDeviations, whiskerColor } = dataset as SigmaDatasetProps;
+      if (!standardDeviations) return;
 
       const meta = chart.getDatasetMeta(datasetIndex);
       if (meta.hidden) return;
 
       meta.data.forEach((element, index) => {
         const value = dataset.data[index];
-        const sd = stdDevs[index];
+        const sd = standardDeviations[index];
         if (typeof value !== 'number' || sd == null) return;
 
         const { x, width } = element.getProps(['x', 'width'], true) as {
@@ -129,7 +129,7 @@ export class StatisticsChartComponent {
         label: 'HE (±1σ)',
         data: labels.map((l) => he.find((r) => r.measurementName === l)?.value ?? null),
         backgroundColor: 'rgba(37, 99, 235, 0.75)',
-        stdDevs: labels.map((l) => he.find((r) => r.measurementName === l)?.stdDev ?? null),
+        standardDeviations: labels.map((l) => he.find((r) => r.measurementName === l)?.standardDeviation ?? null),
         whiskerColor: '#1e3a8a',
       } as ChartData<'bar', (number | null)[]>['datasets'][number]);
     }
@@ -140,7 +140,7 @@ export class StatisticsChartComponent {
         label: 'Plaintext (±1σ)',
         data: labels.map((l) => pt.find((r) => r.measurementName === l)?.value ?? null),
         backgroundColor: 'rgba(22, 163, 74, 0.75)',
-        stdDevs: labels.map((l) => pt.find((r) => r.measurementName === l)?.stdDev ?? null),
+        standardDeviations: labels.map((l) => pt.find((r) => r.measurementName === l)?.standardDeviation ?? null),
         whiskerColor: '#14532d',
       } as ChartData<'bar', (number | null)[]>['datasets'][number]);
     }
@@ -152,7 +152,7 @@ export class StatisticsChartComponent {
   private readonly suggestedMax = computed<number | undefined>(() => {
     const all = [...(this.heResults() ?? []), ...(this.plaintextResults() ?? [])];
     if (!all.length) return undefined;
-    return Math.max(...all.map((r) => r.value + (r.stdDev ?? 0))) * 1.1;
+    return Math.max(...all.map((r) => r.value + (r.standardDeviation ?? 0))) * 1.1;
   });
 
   readonly chartOptions = computed<ChartConfiguration<'bar'>['options']>(() => ({
@@ -172,7 +172,7 @@ export class StatisticsChartComponent {
           label: (ctx) => {
             const value = ctx.parsed.y;
             if (value == null) return ctx.dataset.label ?? '';
-            const sd = (ctx.dataset as SigmaDatasetProps).stdDevs?.[ctx.dataIndex];
+            const sd = (ctx.dataset as SigmaDatasetProps).standardDeviations?.[ctx.dataIndex];
             return sd != null
               ? `${ctx.dataset.label}: ${value.toFixed(2)} ± ${sd.toFixed(2)}`
               : `${ctx.dataset.label}: ${value.toFixed(2)}`;
@@ -190,7 +190,7 @@ export class StatisticsChartComponent {
     ] as const) {
       for (const r of results ?? []) {
         const sigma =
-          r.stdDev !== null ? `, standard deviation ${r.stdDev.toFixed(2)}` : '';
+          r.standardDeviation !== null ? `, standard deviation ${r.standardDeviation.toFixed(2)}` : '';
         parts.push(
           `${r.measurementName} (${source}): average ${r.value.toFixed(2)}${sigma} ${r.unitOfMeasurement}`,
         );

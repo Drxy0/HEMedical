@@ -64,7 +64,7 @@ internal class PlainStatisticsService : IPlainStatisticsService
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
         Task<PlaintextStatisticsResult?> Fetch(BreakdownBuckets.AgeBucket b) =>
-            _plainServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex);
+            _plainServerClient.GetBucketAverageByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex);
 
         return await RunBreakdownAsync(loincCode, componentLoincCode,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);
@@ -77,7 +77,7 @@ internal class PlainStatisticsService : IPlainStatisticsService
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
         Task<PlaintextStatisticsResult?> Fetch(BreakdownBuckets.DateBucket b) =>
-            _plainServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex);
+            _plainServerClient.GetBucketAverageByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex);
 
         return await RunBreakdownAsync(loincCode, componentLoincCode,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);
@@ -104,7 +104,7 @@ internal class PlainStatisticsService : IPlainStatisticsService
     /// of each breakdown bucket. PlainServer connectivity problems come back as a failed
     /// result rather than an unhandled exception.
     /// </summary>
-    private async Task<Result<QueryResult>> ExecuteAsync(LoincCodeInfo codeInfo, decimal? threshold, Func<Task<PlaintextStatisticsResult?>> fetch)
+    private async Task<Result<QueryResult>> ExecuteAsync(LoincCodeInfo codeInfo, double? threshold, Func<Task<PlaintextStatisticsResult?>> fetch)
     {
         PlaintextStatisticsResult? plain;
         try

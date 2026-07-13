@@ -60,10 +60,8 @@ export interface QueryResult {
   measurementName: string;
   value: number;
   /** Null when the query opted out of the standard deviation. */
-  stdDev: number | null;
+  standardDeviation: number | null;
   unitOfMeasurement: string;
-  sum: number;
-  count: number;
   threshold: number | null;
   countAboveThreshold: number | null;
   prevalenceAboveThreshold: number | null;
@@ -73,7 +71,7 @@ export interface QueryResult {
 export interface BreakdownBucket {
   label: string;
   average: number;
-  stdDev: number;
+  standardDeviation: number;
   hasData: boolean;
 }
 

@@ -59,7 +59,7 @@ internal class ClientStatisticsService : IStatisticsService
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
         Task<EncryptedStatisticsResult?> Fetch(BreakdownBuckets.AgeBucket b) =>
-            _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex, null, false);
+            _heServerClient.GetBucketAverageByAgeRangeAsync(loincCode, componentLoincCode, b.StartAge, b.EndAge, sex);
 
         return await RunBreakdownAsync(loincCode, componentLoincCode,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);
@@ -72,7 +72,7 @@ internal class ClientStatisticsService : IStatisticsService
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
         Task<EncryptedStatisticsResult?> Fetch(BreakdownBuckets.DateBucket b) =>
-            _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex, null, false);
+            _heServerClient.GetBucketAverageByDateRangeAsync(loincCode, componentLoincCode, b.Start, b.End, sex);
 
         return await RunBreakdownAsync(loincCode, componentLoincCode,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), Fetch);

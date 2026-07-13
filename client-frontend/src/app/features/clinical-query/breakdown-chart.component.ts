@@ -70,14 +70,21 @@ export class BreakdownChartComponent {
     const labels = this.labels();
     const datasets: ChartData<'bar', (number | null)[]>['datasets'] = [];
 
-    const build = (result: BreakdownResult | null, label: string, fill: string, whisker: string) => {
+    const build = (
+      result: BreakdownResult | null,
+      label: string,
+      fill: string,
+      whisker: string,
+    ) => {
       if (!result) return;
       const byLabel = new Map(result.buckets.map((b) => [b.label, b]));
       datasets.push({
         label,
         data: labels.map((l) => (byLabel.get(l)?.hasData ? byLabel.get(l)!.average : null)),
         backgroundColor: fill,
-        stdDevs: labels.map((l) => (byLabel.get(l)?.hasData ? byLabel.get(l)!.stdDev : null)),
+        standardDeviations: labels.map((l) =>
+          byLabel.get(l)?.hasData ? byLabel.get(l)!.standardDeviation : null,
+        ),
         whiskerColor: whisker,
       } as ChartData<'bar', (number | null)[]>['datasets'][number]);
     };
@@ -94,7 +101,7 @@ export class BreakdownChartComponent {
       ...(this.plaintextResult()?.buckets ?? []),
     ].filter((b) => b.hasData);
     if (!buckets.length) return undefined;
-    return Math.max(...buckets.map((b) => b.average + b.stdDev)) * 1.1;
+    return Math.max(...buckets.map((b) => b.average + b.standardDeviation)) * 1.1;
   });
 
   readonly chartOptions = computed<ChartConfiguration<'bar'>['options']>(() => {
@@ -116,7 +123,7 @@ export class BreakdownChartComponent {
             label: (ctx) => {
               const value = ctx.parsed.y;
               if (value == null) return `${ctx.dataset.label}: no data`;
-              const sd = (ctx.dataset as SigmaDatasetProps).stdDevs?.[ctx.dataIndex];
+              const sd = (ctx.dataset as SigmaDatasetProps).standardDeviations?.[ctx.dataIndex];
               return sd != null
                 ? `${ctx.dataset.label}: ${value.toFixed(2)} ± ${sd.toFixed(2)}`
                 : `${ctx.dataset.label}: ${value.toFixed(2)}`;
