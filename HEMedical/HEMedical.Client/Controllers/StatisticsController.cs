@@ -1,6 +1,6 @@
 using HEMedical.Client.Helpers;
+using HEMedical.Client.Requests;
 using HEMedical.Client.Services.Interfaces;
-using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HEMedical.Client.Controllers;
@@ -17,9 +17,9 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// (fraction of patients at or above it). Codes are verified against the online LOINC service first.
     /// </summary>
     [HttpGet("by-date")]
-    public async Task<IActionResult> GetStatisticsByDateRange(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold = null, bool includeStandardDeviation = false)
+    public async Task<IActionResult> GetStatisticsByDateRange([FromQuery] StatisticsByDateRequest request)
     {
-        var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation);
+        var result = await _statService.GetStatisticsByDateRangeAsync(request.Measurement, request.StartDate, request.EndDate, request.Threshold, request.IncludeStandardDeviation);
         return this.ToActionResult(result);
     }
 
@@ -30,31 +30,31 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// threshold to also get the prevalence at or above it.
     /// </summary>
     [HttpGet("by-age")]
-    public async Task<IActionResult> GetStatisticsByAgeRange(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold = null, bool includeStandardDeviation = false)
+    public async Task<IActionResult> GetStatisticsByAgeRange([FromQuery] StatisticsByAgeRequest request)
     {
-        var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation);
+        var result = await _statService.GetStatisticsByAgeRangeAsync(request.Measurement, request.StartAge, request.EndAge, request.Threshold, request.IncludeStandardDeviation);
         return this.ToActionResult(result);
     }
 
     /// <summary>
     /// Breakdown of the average across age groups: runs the by-age average query once per
-    /// group of <paramref name="bucketSize"/> years and returns one bar per group.
+    /// group of <c>bucketSize</c> years and returns one bar per group.
     /// </summary>
     [HttpGet("breakdown-by-age")]
-    public async Task<IActionResult> GetBreakdownByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex, bool includeStandardDeviation = false)
+    public async Task<IActionResult> GetBreakdownByAge([FromQuery] BreakdownByAgeRequest request)
     {
-        var result = await _statService.GetBreakdownByAgeAsync(loincCode, componentLoincCode, startAge, endAge, bucketSize, sex, includeStandardDeviation);
+        var result = await _statService.GetBreakdownByAgeAsync(request.Measurement, request.StartAge, request.EndAge, request.BucketSize, request.IncludeStandardDeviation);
         return this.ToActionResult(result);
     }
 
     /// <summary>
     /// Breakdown of the average over time: runs the by-date average query once per period
-    /// of <paramref name="bucketMonths"/> months and returns one bar per period.
+    /// of <c>bucketMonths</c> months and returns one bar per period.
     /// </summary>
     [HttpGet("breakdown-by-date")]
-    public async Task<IActionResult> GetBreakdownByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex, bool includeStandardDeviation = false)
+    public async Task<IActionResult> GetBreakdownByDate([FromQuery] BreakdownByDateRequest request)
     {
-        var result = await _statService.GetBreakdownByDateAsync(loincCode, componentLoincCode, startDate, endDate, bucketMonths, sex, includeStandardDeviation);
+        var result = await _statService.GetBreakdownByDateAsync(request.Measurement, request.StartDate, request.EndDate, request.BucketMonths, request.IncludeStandardDeviation);
         return this.ToActionResult(result);
     }
 
@@ -64,9 +64,9 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// reported as below/above-range counts. One encrypted round trip for all bins.
     /// </summary>
     [HttpGet("histogram-by-date")]
-    public async Task<IActionResult> GetHistogramByDate(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByDate([FromQuery] HistogramByDateRequest request)
     {
-        var result = await _statService.GetHistogramByDateAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount);
+        var result = await _statService.GetHistogramByDateAsync(request.Measurement, request.StartDate, request.EndDate, request.BinStart, request.BinWidth, request.BinCount);
         return this.ToActionResult(result);
     }
 
@@ -75,9 +75,9 @@ public class StatisticsController(IStatisticsService _statService) : ControllerB
     /// Same bin semantics as the by-date variant.
     /// </summary>
     [HttpGet("histogram-by-age")]
-    public async Task<IActionResult> GetHistogramByAge(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount)
+    public async Task<IActionResult> GetHistogramByAge([FromQuery] HistogramByAgeRequest request)
     {
-        var result = await _statService.GetHistogramByAgeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount);
+        var result = await _statService.GetHistogramByAgeAsync(request.Measurement, request.StartAge, request.EndAge, request.BinStart, request.BinWidth, request.BinCount);
         return this.ToActionResult(result);
     }
 }

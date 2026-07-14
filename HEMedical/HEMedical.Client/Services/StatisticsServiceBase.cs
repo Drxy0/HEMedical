@@ -38,9 +38,9 @@ internal abstract class StatisticsServiceBase
     protected abstract string ServerName { get; }
 
     /// <summary>Verifies the code(s), then runs one summary query via <paramref name="fetchSums"/>.</summary>
-    protected async Task<Result<QueryResult>> RunQueryAsync(string loincCode, string? componentLoincCode, double? threshold, Func<Task<MomentSums?>> fetchSums)
+    protected async Task<Result<QueryResult>> RunQueryAsync(MeasurementQuery query, double? threshold, Func<Task<MomentSums?>> fetchSums)
     {
-        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(query);
         if (!verification.IsSuccess)
             return Result<QueryResult>.Fail(verification.Error!, verification.Kind);
 
@@ -48,37 +48,37 @@ internal abstract class StatisticsServiceBase
     }
 
     /// <summary>As <see cref="RunQueryAsync"/>, with the age range validated first.</summary>
-    protected async Task<Result<QueryResult>> RunQueryByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, double? threshold, Func<Task<MomentSums?>> fetchSums)
+    protected async Task<Result<QueryResult>> RunQueryByAgeAsync(MeasurementQuery query, int startAge, int endAge, double? threshold, Func<Task<MomentSums?>> fetchSums)
     {
         string? error = QueryValidation.AgeRange(startAge, endAge);
         if (error is not null)
             return Result<QueryResult>.Fail(error, ErrorKind.InvalidInput);
 
-        return await RunQueryAsync(loincCode, componentLoincCode, threshold, fetchSums);
+        return await RunQueryAsync(query, threshold, fetchSums);
     }
 
     /// <summary>
     /// Splits the age range into consecutive groups and runs one average query per group
     /// via <paramref name="fetchBucketSums"/>.
     /// </summary>
-    protected async Task<Result<BreakdownResult>> RunBreakdownByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, Func<BreakdownBuckets.AgeBucket, Task<MomentSums?>> fetchBucketSums)
+    protected async Task<Result<BreakdownResult>> RunBreakdownByAgeAsync(MeasurementQuery query, int startAge, int endAge, int bucketSize, Func<BreakdownBuckets.AgeBucket, Task<MomentSums?>> fetchBucketSums)
     {
         var buckets = BreakdownBuckets.ForAge(startAge, endAge, bucketSize, _maxBuckets);
         if (!buckets.IsSuccess)
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
-        return await RunBreakdownAsync(loincCode, componentLoincCode,
+        return await RunBreakdownAsync(query,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), fetchBucketSums);
     }
 
     /// <summary>Date-range counterpart of <see cref="RunBreakdownByAgeAsync"/>.</summary>
-    protected async Task<Result<BreakdownResult>> RunBreakdownByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, Func<BreakdownBuckets.DateBucket, Task<MomentSums?>> fetchBucketSums)
+    protected async Task<Result<BreakdownResult>> RunBreakdownByDateAsync(MeasurementQuery query, DateOnly startDate, DateOnly endDate, int bucketMonths, Func<BreakdownBuckets.DateBucket, Task<MomentSums?>> fetchBucketSums)
     {
         var buckets = BreakdownBuckets.ForDate(startDate, endDate, bucketMonths, _maxBuckets);
         if (!buckets.IsSuccess)
             return Result<BreakdownResult>.Fail(buckets.Error!, buckets.Kind);
 
-        return await RunBreakdownAsync(loincCode, componentLoincCode,
+        return await RunBreakdownAsync(query,
             buckets.Value!, buckets.Value!.Select(b => b.Label).ToList(), fetchBucketSums);
     }
 
@@ -88,13 +88,13 @@ internal abstract class StatisticsServiceBase
     /// overflow slots) and assembles the result. Counts are sums of exact 1.0s, so any
     /// CKKS noise on the encrypted path rounds away to whole numbers.
     /// </summary>
-    protected async Task<Result<HistogramResult>> RunHistogramAsync(string loincCode, string? componentLoincCode, double binStart, double binWidth, int binCount, Func<Task<IReadOnlyList<double>?>> fetchSlots)
+    protected async Task<Result<HistogramResult>> RunHistogramAsync(MeasurementQuery query, double binStart, double binWidth, int binCount, Func<Task<IReadOnlyList<double>?>> fetchSlots)
     {
         string? binError = QueryValidation.Bins(binWidth, binCount);
         if (binError is not null)
             return Result<HistogramResult>.Fail(binError, ErrorKind.InvalidInput);
 
-        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(query);
         if (!verification.IsSuccess)
             return Result<HistogramResult>.Fail(verification.Error!, verification.Kind);
 
@@ -131,13 +131,13 @@ internal abstract class StatisticsServiceBase
     }
 
     /// <summary>As <see cref="RunHistogramAsync"/>, with the age range validated first.</summary>
-    protected async Task<Result<HistogramResult>> RunHistogramByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, double binStart, double binWidth, int binCount, Func<Task<IReadOnlyList<double>?>> fetchSlots)
+    protected async Task<Result<HistogramResult>> RunHistogramByAgeAsync(MeasurementQuery query, int startAge, int endAge, double binStart, double binWidth, int binCount, Func<Task<IReadOnlyList<double>?>> fetchSlots)
     {
         string? error = QueryValidation.AgeRange(startAge, endAge);
         if (error is not null)
             return Result<HistogramResult>.Fail(error, ErrorKind.InvalidInput);
 
-        return await RunHistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount, fetchSlots);
+        return await RunHistogramAsync(query, binStart, binWidth, binCount, fetchSlots);
     }
 
     /// <summary>
@@ -176,13 +176,12 @@ internal abstract class StatisticsServiceBase
     /// the breakdown. The LOINC code is verified once up front, not per bucket.
     /// </summary>
     private async Task<Result<BreakdownResult>> RunBreakdownAsync<TBucket>(
-        string loincCode,
-        string? componentLoincCode,
+        MeasurementQuery query,
         IReadOnlyList<TBucket> buckets,
         IReadOnlyList<string> labels,
         Func<TBucket, Task<MomentSums?>> fetchBucketSums)
     {
-        Result<LoincCodeInfo> verification = await VerifyCodesAsync(loincCode, componentLoincCode);
+        Result<LoincCodeInfo> verification = await VerifyCodesAsync(query);
         if (!verification.IsSuccess)
             return Result<BreakdownResult>.Fail(verification.Error!, verification.Kind);
 
@@ -200,15 +199,15 @@ internal abstract class StatisticsServiceBase
     /// The returned info describes the measurement itself: the component's when one
     /// is given (e.g. "Systolic blood pressure"), otherwise the main code's.
     /// </summary>
-    private async Task<Result<LoincCodeInfo>> VerifyCodesAsync(string loincCode, string? componentLoincCode)
+    private async Task<Result<LoincCodeInfo>> VerifyCodesAsync(MeasurementQuery query)
     {
-        Result<LoincCodeInfo> main = await _loincVerificationService.VerifyAsync(loincCode);
+        Result<LoincCodeInfo> main = await _loincVerificationService.VerifyAsync(query.LoincCode);
         if (!main.IsSuccess)
             return main;
 
-        if (componentLoincCode is null)
+        if (query.ComponentLoincCode is null)
             return main;
 
-        return await _loincVerificationService.VerifyAsync(componentLoincCode);
+        return await _loincVerificationService.VerifyAsync(query.ComponentLoincCode);
     }
 }

@@ -1,7 +1,7 @@
 using HEMedical.Client.Clients.Interfaces;
+using HEMedical.Client.DTOs;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Http;
-using HEMedical.Shared.Models;
 
 namespace HEMedical.Client.Clients;
 
@@ -14,23 +14,23 @@ public class PlainServerClient : IPlainServerClient
         _httpClient = httpClient;
     }
 
-    public Task<PlaintextStatisticsResult?> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold, bool includeStandardDeviation) =>
-        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByDate("api/query/by-date", loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation));
+    public Task<PlaintextStatisticsResult?> GetStatisticsByDateRangeAsync(MeasurementQuery query, DateOnly startDate, DateOnly endDate, double? threshold, bool includeStandardDeviation) =>
+        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByDate("api/query/by-date", query.LoincCode, query.ComponentLoincCode, startDate, endDate, query.Sex, threshold, includeStandardDeviation));
 
-    public Task<PlaintextStatisticsResult?> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation) =>
-        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByAge("api/query/by-age", loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation));
+    public Task<PlaintextStatisticsResult?> GetStatisticsByAgeRangeAsync(MeasurementQuery query, int startAge, int endAge, double? threshold, bool includeStandardDeviation) =>
+        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByAge("api/query/by-age", query.LoincCode, query.ComponentLoincCode, startAge, endAge, query.Sex, threshold, includeStandardDeviation));
 
-    public Task<PlaintextStatisticsResult?> GetBucketAverageByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, bool includeStandardDeviation) =>
-        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByAge("api/query/by-age", loincCode, componentLoincCode, startAge, endAge, sex, threshold: null, includeStandardDeviation));
+    public Task<PlaintextStatisticsResult?> GetBucketAverageByAgeRangeAsync(MeasurementQuery query, int startAge, int endAge, bool includeStandardDeviation) =>
+        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByAge("api/query/by-age", query.LoincCode, query.ComponentLoincCode, startAge, endAge, query.Sex, threshold: null, includeStandardDeviation));
 
-    public Task<PlaintextStatisticsResult?> GetBucketAverageByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, bool includeStandardDeviation) =>
-        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByDate("api/query/by-date", loincCode, componentLoincCode, startDate, endDate, sex, threshold: null, includeStandardDeviation));
+    public Task<PlaintextStatisticsResult?> GetBucketAverageByDateRangeAsync(MeasurementQuery query, DateOnly startDate, DateOnly endDate, bool includeStandardDeviation) =>
+        GetAsync<PlaintextStatisticsResult>(StatisticsQueryString.ByDate("api/query/by-date", query.LoincCode, query.ComponentLoincCode, startDate, endDate, query.Sex, threshold: null, includeStandardDeviation));
 
-    public Task<double[]?> GetHistogramByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount) =>
-        GetAsync<double[]>(StatisticsQueryString.HistogramByDate("api/query/histogram-by-date", loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount));
+    public Task<double[]?> GetHistogramByDateRangeAsync(MeasurementQuery query, DateOnly startDate, DateOnly endDate, double binStart, double binWidth, int binCount) =>
+        GetAsync<double[]>(StatisticsQueryString.HistogramByDate("api/query/histogram-by-date", query.LoincCode, query.ComponentLoincCode, startDate, endDate, query.Sex, binStart, binWidth, binCount));
 
-    public Task<double[]?> GetHistogramByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount) =>
-        GetAsync<double[]>(StatisticsQueryString.HistogramByAge("api/query/histogram-by-age", loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount));
+    public Task<double[]?> GetHistogramByAgeRangeAsync(MeasurementQuery query, int startAge, int endAge, double binStart, double binWidth, int binCount) =>
+        GetAsync<double[]>(StatisticsQueryString.HistogramByAge("api/query/histogram-by-age", query.LoincCode, query.ComponentLoincCode, startAge, endAge, query.Sex, binStart, binWidth, binCount));
 
     private async Task<T?> GetAsync<T>(string url) where T : class
     {

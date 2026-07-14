@@ -2,9 +2,9 @@ name: Build and deploy to AKS
 
 # Builds the five images in ACR, then rolls them out to the AKS cluster.
 # Assumes the infrastructure already exists (deploy/terraform applied once).
+# Manual-only: run it from the Actions tab. The push trigger is intentionally
+# disabled so pushing to main does not build/deploy automatically.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 env:

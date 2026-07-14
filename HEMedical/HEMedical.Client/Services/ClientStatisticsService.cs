@@ -29,29 +29,29 @@ internal class ClientStatisticsService : StatisticsServiceBase, IStatisticsServi
 
     protected override string ServerName => "HE Server";
 
-    public Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double? threshold, bool includeStandardDeviation) =>
-        RunQueryAsync(loincCode, componentLoincCode, threshold, async () =>
-            DecryptSums(await _heServerClient.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation)));
+    public Task<Result<QueryResult>> GetStatisticsByDateRangeAsync(MeasurementQuery query, DateOnly startDate, DateOnly endDate, double? threshold, bool includeStandardDeviation) =>
+        RunQueryAsync(query, threshold, async () =>
+            DecryptSums(await _heServerClient.GetStatisticsByDateRangeAsync(query, startDate, endDate, threshold, includeStandardDeviation)));
 
-    public Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double? threshold, bool includeStandardDeviation) =>
-        RunQueryByAgeAsync(loincCode, componentLoincCode, startAge, endAge, threshold, async () =>
-            DecryptSums(await _heServerClient.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation)));
+    public Task<Result<QueryResult>> GetStatisticsByAgeRangeAsync(MeasurementQuery query, int startAge, int endAge, double? threshold, bool includeStandardDeviation) =>
+        RunQueryByAgeAsync(query, startAge, endAge, threshold, async () =>
+            DecryptSums(await _heServerClient.GetStatisticsByAgeRangeAsync(query, startAge, endAge, threshold, includeStandardDeviation)));
 
-    public Task<Result<BreakdownResult>> GetBreakdownByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, int bucketSize, PatientSex? sex, bool includeStandardDeviation) =>
-        RunBreakdownByAgeAsync(loincCode, componentLoincCode, startAge, endAge, bucketSize, async bucket =>
-            DecryptSums(await _heServerClient.GetBucketAverageByAgeRangeAsync(loincCode, componentLoincCode, bucket.StartAge, bucket.EndAge, sex, includeStandardDeviation)));
+    public Task<Result<BreakdownResult>> GetBreakdownByAgeAsync(MeasurementQuery query, int startAge, int endAge, int bucketSize, bool includeStandardDeviation) =>
+        RunBreakdownByAgeAsync(query, startAge, endAge, bucketSize, async bucket =>
+            DecryptSums(await _heServerClient.GetBucketAverageByAgeRangeAsync(query, bucket.StartAge, bucket.EndAge, includeStandardDeviation)));
 
-    public Task<Result<BreakdownResult>> GetBreakdownByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, int bucketMonths, PatientSex? sex, bool includeStandardDeviation) =>
-        RunBreakdownByDateAsync(loincCode, componentLoincCode, startDate, endDate, bucketMonths, async bucket =>
-            DecryptSums(await _heServerClient.GetBucketAverageByDateRangeAsync(loincCode, componentLoincCode, bucket.Start, bucket.End, sex, includeStandardDeviation)));
+    public Task<Result<BreakdownResult>> GetBreakdownByDateAsync(MeasurementQuery query, DateOnly startDate, DateOnly endDate, int bucketMonths, bool includeStandardDeviation) =>
+        RunBreakdownByDateAsync(query, startDate, endDate, bucketMonths, async bucket =>
+            DecryptSums(await _heServerClient.GetBucketAverageByDateRangeAsync(query, bucket.Start, bucket.End, includeStandardDeviation)));
 
-    public Task<Result<HistogramResult>> GetHistogramByDateAsync(string loincCode, string? componentLoincCode, DateOnly startDate, DateOnly endDate, PatientSex? sex, double binStart, double binWidth, int binCount) =>
-        RunHistogramAsync(loincCode, componentLoincCode, binStart, binWidth, binCount, async () =>
-            DecryptHistogramSlots(await _heServerClient.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount)));
+    public Task<Result<HistogramResult>> GetHistogramByDateAsync(MeasurementQuery query, DateOnly startDate, DateOnly endDate, double binStart, double binWidth, int binCount) =>
+        RunHistogramAsync(query, binStart, binWidth, binCount, async () =>
+            DecryptHistogramSlots(await _heServerClient.GetHistogramByDateRangeAsync(query, startDate, endDate, binStart, binWidth, binCount)));
 
-    public Task<Result<HistogramResult>> GetHistogramByAgeAsync(string loincCode, string? componentLoincCode, int startAge, int endAge, PatientSex? sex, double binStart, double binWidth, int binCount) =>
-        RunHistogramByAgeAsync(loincCode, componentLoincCode, startAge, endAge, binStart, binWidth, binCount, async () =>
-            DecryptHistogramSlots(await _heServerClient.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount)));
+    public Task<Result<HistogramResult>> GetHistogramByAgeAsync(MeasurementQuery query, int startAge, int endAge, double binStart, double binWidth, int binCount) =>
+        RunHistogramByAgeAsync(query, startAge, endAge, binStart, binWidth, binCount, async () =>
+            DecryptHistogramSlots(await _heServerClient.GetHistogramByAgeRangeAsync(query, startAge, endAge, binStart, binWidth, binCount)));
 
     /// <summary>
     /// The transport step of the encrypted path: turns the HE Server's aggregated
