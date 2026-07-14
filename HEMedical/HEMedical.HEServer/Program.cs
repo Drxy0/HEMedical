@@ -1,7 +1,9 @@
+using System.Threading.RateLimiting;
 using HEMedical.HEServer;
 using HEMedical.HEServer.Clients.Interfaces;
 using HEMedical.HEServer.Services;
 using HEMedical.HEServer.Services.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +13,22 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-builder.Services.Configure<HospitalProxySettings>(builder.Configuration.GetSection("HospitalsProxies"));
+// The hospital registration endpoint is open (a new proxy has no credential yet), so it is
+// rate-limited per client IP to blunt registration floods from a rogue party.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("register", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromSeconds(10),
+                PermitLimit = 10,
+                QueueLimit = 0
+            }));
+});
+
 builder.Services.AddSingleton<HEKeyRegistry>();
 builder.Services.AddSingleton<HospitalRegistry>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
@@ -27,6 +44,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseRateLimiter();
 
 app.UseAuthorization();
 

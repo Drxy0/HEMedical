@@ -5,14 +5,12 @@ using HEMedical.Shared;
 using HEMedical.Shared.Common;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Models;
-using Microsoft.Extensions.Options;
 using Microsoft.Research.SEAL;
 
 namespace HEMedical.HEServer.Services;
 
 public class StatisticsService : IStatisticsService
 {
-    private readonly HospitalProxySettings _settings;
     private readonly HospitalRegistry _hospitals;
     private readonly HEKeyRegistry _keys;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -20,13 +18,11 @@ public class StatisticsService : IStatisticsService
     private readonly SEALContext _context;
 
     public StatisticsService(
-        IOptions<HospitalProxySettings> settings,
         HospitalRegistry hospitals,
         HEKeyRegistry keys,
         IHttpClientFactory httpClientFactory,
         ILogger<StatisticsService> logger)
     {
-        _settings = settings.Value;
         _hospitals = hospitals;
         _keys = keys;
         _httpClientFactory = httpClientFactory;
@@ -52,22 +48,19 @@ public class StatisticsService : IStatisticsService
         QueryProxiesAsync(client => client.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount), AggregateHistograms);
 
     /// <summary>
-    /// Runs the given call against every known hospital proxy in parallel and
-    /// homomorphically aggregates the responses. Hospitals are the union of the
-    /// self-registered ones (see <see cref="HospitalRegistry"/>) and any statically
-    /// configured URLs kept as a fallback. Proxies that fail are logged and skipped.
+    /// Runs the given call against every eligible hospital proxy in parallel and
+    /// homomorphically aggregates the responses. Only administrator-approved proxies whose
+    /// heartbeat is fresh take part (see <see cref="HospitalRegistry"/>); proxies that fail
+    /// are logged and skipped.
     /// </summary>
     private async Task<Result<T>> QueryProxiesAsync<T>(Func<IHospitalProxyClient, Task<T?>> call, Func<T?[], Result<T>> aggregate) where T : class
     {
         try
         {
-            var urls = _hospitals.ActiveUrls
-                .Concat(_settings.Urls)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var urls = _hospitals.ActiveUrls;
 
             if (urls.Count == 0)
-                return Result<T>.Fail("No hospitals are currently registered with the HE Server.");
+                return Result<T>.Fail("No approved hospitals are currently registered with the HE Server.");
 
             var tasks = urls.Select(url => FetchFromProxyAsync(url, call));
             T?[] responses = await Task.WhenAll(tasks);

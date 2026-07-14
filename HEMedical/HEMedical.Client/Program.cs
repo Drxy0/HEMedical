@@ -1,9 +1,13 @@
+using HEMedical.Client.Auth;
 using HEMedical.Client.Clients;
 using HEMedical.Client.Clients.Interfaces;
 using HEMedical.Client.Services;
 using HEMedical.Client.Services.Interfaces;
 using System.Net.Http.Headers;
+using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +17,32 @@ builder.Services.AddControllers();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// Authentication for the admin dashboard: predefined accounts issue a signed JWT (see AuthService,
+// a placeholder for a real identity provider such as Firebase). Admin endpoints require the role.
+builder.Services.AddSingleton<AuthService>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = AuthConstants.Issuer,
+            ValidateAudience = true,
+            ValidAudience = AuthConstants.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(AuthConstants.SigningSecret(builder.Configuration))),
+            ValidateLifetime = true,
+            RoleClaimType = ClaimTypes.Role,
+        };
+    });
+builder.Services.AddAuthorization();
+
+// Admin governance calls are forwarded to the HE Server's admin API with the shared admin secret.
+builder.Services.AddHttpClient<IHospitalAdminClient, HospitalAdminClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["HEServerBaseUrl"]!);
+});
 
 builder.Services.AddSingleton<IHEKeyGeneratorService, HEKeyGeneratorService>();
 builder.Services.AddScoped<IStatisticsService, ClientStatisticsService>();
@@ -60,6 +90,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

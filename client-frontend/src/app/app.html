@@ -1,1 +1,17 @@
+<nav class="app-nav">
+  @if (auth.isLoggedIn()) {
+    <a routerLink="/query" routerLinkActive="active">Queries</a>
+  }
+  @if (auth.isAdmin()) {
+    <a routerLink="/admin" routerLinkActive="active">Administration</a>
+  }
+  <span class="spacer"></span>
+  @if (auth.isLoggedIn()) {
+    <span class="user">{{ auth.username() }}</span>
+    <button type="button" (click)="logout()">Log out</button>
+  } @else {
+    <a routerLink="/login" routerLinkActive="active">Log in</a>
+  }
+</nav>
+
 <router-outlet />

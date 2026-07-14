@@ -10,7 +10,7 @@
             id="presetFill"
             style="max-width: 200px; align-self: end"
             #presetSelect
-            (change)="applyPreset(presetSelect.value); presetSelect.value = ''"
+            (change)="applyPreset(presetSelect.value)"
           >
             <option value="" selected>None</option>
             @for (preset of presetFills; track preset.label; let i = $index) {
