@@ -21,7 +21,7 @@
         @if (heResult(); as heItems) {
           @for (he of heItems; track he.measurementName) {
             <div class="result-row">
-              <dt>{{ he.measurementName }} (HE)</dt>
+              <dt>{{ he.measurementName }}</dt>
               <dd>
                 {{ he.value | number: '1.2-2' }}
                 @if (he.standardDeviation !== null) {
@@ -31,7 +31,7 @@
                 <span class="result-detail">
                   n = {{ he.patientCount }}
                   @if (he.prevalenceAboveThreshold !== null) {
-                    · {{ he.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                    | {{ he.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
                     {{ he.threshold }} ({{ he.countAboveThreshold }})
                   }
                 </span>
@@ -52,7 +52,7 @@
                 <span class="result-detail">
                   n = {{ pt.patientCount }}
                   @if (pt.prevalenceAboveThreshold !== null) {
-                    · {{ pt.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
+                    | {{ pt.prevalenceAboveThreshold * 100 | number: '1.1-1' }}% ≥
                     {{ pt.threshold }} ({{ pt.countAboveThreshold }})
                   }
                 </span>

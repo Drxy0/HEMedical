@@ -178,6 +178,20 @@ fieldset {
       outline-offset: 2px;
     }
   }
+
+  // Plaintext (verification) button: bright yellow, marking it as the secondary action.
+  button.plaintext-btn {
+    background-color: #eab308;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background-color: #ca8a04;
+    }
+
+    &:focus-visible {
+      outline-color: #a16207;
+    }
+  }
 }
 
 .sr-only {

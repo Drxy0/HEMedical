@@ -74,25 +74,16 @@ public class PlaintextStatisticsService : IPlaintextStatisticsService
     }
 
     /// <summary>
-    /// Bins the values with the same arithmetic as the encrypted path's slots-as-bins
-    /// vector: entry b counts bin b, entry binCount the underflow, entry binCount+1 the
-    /// overflow, so the entries always add up to the full cohort.
+    /// Bins the values with the exact same slot mapping as the encrypted path's
+    /// slots-as-bins vector (the shared <see cref="HistogramBinning.SlotFor"/>): entry b
+    /// counts bin b, entry binCount the underflow, entry binCount+1 the overflow, so the
+    /// entries always add up to the full cohort.
     /// </summary>
     private static double[] BuildBinCounts(List<decimal> values, double binStart, double binWidth, int binCount)
     {
         double[] counts = new double[binCount + 2];
         foreach (decimal value in values)
-        {
-            double v = (double)value;
-            int slot;
-            if (v < binStart)
-                slot = binCount;                                    // underflow
-            else if ((int)((v - binStart) / binWidth) is var bin && bin >= binCount)
-                slot = binCount + 1;                                // overflow
-            else
-                slot = bin;
-            counts[slot] += 1.0;
-        }
+            counts[HistogramBinning.SlotFor((double)value, binStart, binWidth, binCount)] += 1.0;
         return counts;
     }
 }

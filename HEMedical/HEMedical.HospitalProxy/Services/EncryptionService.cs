@@ -71,29 +71,18 @@ public class EncryptionService : IEncryptionService
 
     /// <summary>
     /// Builds the frequency-histogram vector. Unlike the moment vectors, slots do not hold
-    /// patients here — slot b holds the count of patients whose value falls in bin b
-    /// ([binStart + b·binWidth, binStart + (b+1)·binWidth)). Which bin a value falls in is
-    /// decided here, in plaintext — the one comparison CKKS cannot do — and the encrypted
-    /// side only ever adds the counts. No wraparound is involved: any number of patients
-    /// only ever increments the same binCount+2 slots.
-    /// Slot binCount counts values below the first bin, slot binCount+1 values at or past
-    /// the last bin, so the slots always add up to the full cohort.
+    /// patients here — slot b holds the count of patients whose value falls in bin b.
+    /// Which bin a value falls in is decided here, in plaintext — the one comparison CKKS
+    /// cannot do — via the shared <see cref="HistogramBinning.SlotFor"/> mapping, and the
+    /// encrypted side only ever adds the counts. No wraparound is involved: any number of
+    /// patients only ever increments the same binCount+2 slots, and the bins plus the two
+    /// edge slots always add up to the full cohort.
     /// </summary>
     private static List<double> BuildBinCountsVector(List<decimal> values, ulong slotCount, double binStart, double binWidth, int binCount)
     {
         List<double> vector = ZeroVector(slotCount);
         foreach (decimal value in values)
-        {
-            double v = (double)value;
-            int slot;
-            if (v < binStart)
-                slot = binCount;                                    // underflow
-            else if ((int)((v - binStart) / binWidth) is var bin && bin >= binCount)
-                slot = binCount + 1;                                // overflow
-            else
-                slot = bin;
-            vector[slot] += 1.0;
-        }
+            vector[HistogramBinning.SlotFor((double)value, binStart, binWidth, binCount)] += 1.0;
         return vector;
     }
 

@@ -272,10 +272,16 @@
         }
 
         @if (isHistogram()) {
+          <p class="field-hint">
+            {{
+              binRangesPreview() ??
+                'Enter a start and end value, then choose a step size.'
+            }}
+          </p>
           <div class="field-row">
             <div class="field">
               <label for="binStart"
-                >Bins start at <span class="required" aria-hidden="true">*</span></label
+                >Start value <span class="required" aria-hidden="true">*</span></label
               >
               <input
                 id="binStart"
@@ -286,29 +292,32 @@
               />
             </div>
             <div class="field">
-              <label for="binWidth"
-                >Bin width <span class="required" aria-hidden="true">*</span></label
+              <label for="binEnd"
+                >End value <span class="required" aria-hidden="true">*</span></label
               >
               <input
-                id="binWidth"
+                id="binEnd"
                 type="number"
-                formControlName="binWidth"
+                formControlName="binEnd"
                 step="any"
-                placeholder="e.g. 0.5"
+                placeholder="e.g. 10"
               />
             </div>
             <div class="field">
-              <label for="binCount"
-                >Number of bins <span class="required" aria-hidden="true">*</span></label
+              <label for="binWidth"
+                >Step <span class="required" aria-hidden="true">*</span></label
               >
-              <input id="binCount" type="number" formControlName="binCount" min="1" max="512" />
+              <select id="binWidth" formControlName="binWidth">
+                <option [ngValue]="null" disabled>Select…</option>
+                @for (opt of binWidthOptions(); track opt) {
+                  <option [ngValue]="opt">{{ opt }}</option>
+                }
+              </select>
             </div>
           </div>
-          @if (submitted() && form.hasError('binsRequired')) {
-            <span class="field-error" role="alert">Bin start, width and count are required</span>
-          } @else if (submitted() && form.hasError('binsInvalid')) {
+          @if (submitted() && form.hasError('binsInvalid')) {
             <span class="field-error" role="alert"
-              >Bin width must be positive; 1–512 bins allowed</span
+              >End must be after start, with a step that produces at most 512 ranges</span
             >
           }
         }
@@ -328,6 +337,7 @@
           </button>
           <button
             type="button"
+            class="plaintext-btn"
             (click)="onQueryPlaintext()"
             [disabled]="isLoadingHE() || isLoadingPlaintext()"
           >

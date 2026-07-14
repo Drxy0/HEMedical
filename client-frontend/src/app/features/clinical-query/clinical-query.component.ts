@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   signal,
   WritableSignal,
@@ -36,6 +37,42 @@ type ResultType = 'summary' | 'breakdown' | 'histogram';
 /** LOINC codes are digits, a hyphen, and a single check digit (e.g. 4548-4). */
 const LOINC_CODE_PATTERN = /^\d+-\d$/;
 
+/** The "nice" step sizes (1-2-5 sequence across magnitudes) offered for histogram ranges. */
+const NICE_STEP_MULTIPLIERS = [1, 2, 2.5, 5];
+
+/**
+ * Candidate step sizes for splitting [start, end] into ranges, picked from the standard
+ * 1-2-5 sequence and filtered to ones giving a sensible number of ranges (2 to 200) —
+ * the same approach charting libraries use to pick readable axis ticks.
+ */
+function niceStepOptions(span: number): number[] {
+  if (!span || span <= 0) return [];
+  const options: number[] = [];
+  for (let exponent = -3; exponent <= 4; exponent++) {
+    const magnitude = 10 ** exponent;
+    for (const multiplier of NICE_STEP_MULTIPLIERS) {
+      const step = multiplier * magnitude;
+      const rangeCount = span / step;
+      if (rangeCount >= 2 && rangeCount <= 200) options.push(step);
+    }
+  }
+  return [...new Set(options)].sort((a, b) => a - b);
+}
+
+/** The number of histogram ranges [start, end] splits into at the given step, clamped to what the API allows. */
+function computeBinCount(
+  start: number | null,
+  end: number | null,
+  width: number | null,
+): number | null {
+  if (start == null || end == null || !width || end <= start) return null;
+  return Math.max(1, Math.min(512, Math.round((end - start) / width)));
+}
+
+function roundForDisplay(value: number): number {
+  return Math.round(value * 1e6) / 1e6;
+}
+
 /** Cross-field validation: the LOINC codes plus the required range for the chosen query type. */
 function validateQueryForm(group: AbstractControl): ValidationErrors | null {
   const errors: ValidationErrors = {};
@@ -53,10 +90,11 @@ function validateQueryForm(group: AbstractControl): ValidationErrors | null {
   }
   if (group.get('resultType')?.value === 'histogram') {
     const binStart = group.get('binStart')?.value;
+    const binEnd = group.get('binEnd')?.value;
     const binWidth = group.get('binWidth')?.value;
-    const binCount = group.get('binCount')?.value;
-    if (binStart == null || binWidth == null || binCount == null) errors['binsRequired'] = true;
-    else if (binWidth <= 0 || binCount < 1 || binCount > 512) errors['binsInvalid'] = true;
+    if (binStart == null || binEnd == null || binWidth == null) errors['binsRequired'] = true;
+    else if (binEnd <= binStart || computeBinCount(binStart, binEnd, binWidth) == null)
+      errors['binsInvalid'] = true;
   }
 
   const code = ((group.get('loincCode')?.value as string | null) ?? '').trim();
@@ -97,8 +135,8 @@ export class ClinicalQueryComponent {
       threshold: [null as number | null],
       includeStandardDeviation: [false],
       binStart: [null as number | null],
+      binEnd: [null as number | null],
       binWidth: [null as number | null],
-      binCount: [10 as number | null, [Validators.min(1), Validators.max(512)]],
       patientSex: [null as PatientSex | null],
     },
     { validators: validateQueryForm },
@@ -115,6 +153,49 @@ export class ClinicalQueryComponent {
   readonly isBreakdown = computed(() => this.resultType() === 'breakdown');
   readonly isHistogram = computed(() => this.resultType() === 'histogram');
   readonly isSummary = computed(() => this.resultType() === 'summary');
+
+  private readonly binStartValue = toSignal(this.form.controls.binStart.valueChanges, {
+    initialValue: null as number | null,
+  });
+  private readonly binEndValue = toSignal(this.form.controls.binEnd.valueChanges, {
+    initialValue: null as number | null,
+  });
+  private readonly binWidthValue = toSignal(this.form.controls.binWidth.valueChanges, {
+    initialValue: null as number | null,
+  });
+
+  /** Step choices offered for the current start/end span (empty until both are filled in). */
+  readonly binWidthOptions = computed(() => {
+    const start = this.binStartValue();
+    const end = this.binEndValue();
+    if (start == null || end == null || end <= start) return [];
+    return niceStepOptions(end - start);
+  });
+
+  /** Number of ranges [start, end] splits into at the chosen step — never entered directly by the user. */
+  private readonly derivedBinCount = computed(() =>
+    computeBinCount(this.binStartValue(), this.binEndValue(), this.binWidthValue()),
+  );
+
+  /**
+   * Live preview of the ranges patients will be counted into, built from whatever the user
+   * has picked so far — makes "start / end / step" concrete instead of abstract, e.g.
+   * "4–4.5, 4.5–5, 5–5.5, 5.5–6 … (12 ranges total)".
+   */
+  readonly binRangesPreview = computed(() => {
+    const start = this.binStartValue();
+    const width = this.binWidthValue();
+    const count = this.derivedBinCount();
+    if (start == null || !width || !count) return null;
+
+    const shown = Math.min(count, 3);
+    const ranges = Array.from(
+      { length: shown },
+      (_, i) => `${roundForDisplay(start + i * width)}–${roundForDisplay(start + (i + 1) * width)}`,
+    );
+    const suffix = count > shown ? ' …' : '';
+    return `Patients will be counted per range: ${ranges.join(', ')}${suffix} (${count} range${count === 1 ? '' : 's'} total)`;
+  });
 
   readonly isLoadingHE = signal(false);
   readonly isLoadingPlaintext = signal(false);
@@ -145,6 +226,18 @@ export class ClinicalQueryComponent {
     { value: PatientSex.Female, label: SEX_LABELS[PatientSex.Female] },
     { value: PatientSex.Other, label: SEX_LABELS[PatientSex.Other] },
   ];
+
+  constructor() {
+    // A step chosen for a previous start/end span may no longer be offered once that
+    // span changes; clear it rather than silently keeping a now-unlisted selection.
+    effect(() => {
+      const options = this.binWidthOptions();
+      const current = this.form.controls.binWidth.value;
+      if (current != null && !options.includes(current)) {
+        this.form.controls.binWidth.setValue(null);
+      }
+    });
+  }
 
   /** Fills the LOINC code fields from the chosen example measurement (a convenience only). */
   applyPreset(index: string): void {
@@ -357,8 +450,9 @@ export class ClinicalQueryComponent {
     const query = this.currentQuery();
     if (!query) return;
 
-    const { queryType, startDate, endDate, startAge, endAge, binStart, binWidth, binCount, patientSex } =
+    const { queryType, startDate, endDate, startAge, endAge, binStart, binWidth, patientSex } =
       this.form.getRawValue();
+    const binCount = this.derivedBinCount();
     const sex = patientSex ?? undefined;
 
     loading.set(true);

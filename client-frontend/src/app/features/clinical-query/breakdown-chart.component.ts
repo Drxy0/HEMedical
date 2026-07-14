@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  LOCALE_ID,
+} from '@angular/core';
+import { formatNumber } from '@angular/common';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartConfiguration, ChartData } from 'chart.js';
 import { BreakdownResult } from '../../shared/models/clinical-measurement.model';
@@ -53,6 +61,13 @@ import { errorBarsPlugin, SigmaDatasetProps } from './error-bars.plugin';
 export class BreakdownChartComponent {
   readonly heResult = input<BreakdownResult | null>(null);
   readonly plaintextResult = input<BreakdownResult | null>(null);
+
+  private readonly locale = inject(LOCALE_ID);
+
+  /** Two-decimal number in the app locale (comma decimal separator), matching the results pipe. */
+  private format2(value: number): string {
+    return formatNumber(value, this.locale, '1.2-2');
+  }
 
   readonly chartPlugins = [errorBarsPlugin];
 
@@ -126,8 +141,8 @@ export class BreakdownChartComponent {
               if (value == null) return `${ctx.dataset.label}: no data`;
               const sd = (ctx.dataset as SigmaDatasetProps).standardDeviations?.[ctx.dataIndex];
               return sd != null
-                ? `${ctx.dataset.label}: ${value.toFixed(2)} ± ${sd.toFixed(2)}`
-                : `${ctx.dataset.label}: ${value.toFixed(2)}`;
+                ? `${ctx.dataset.label}: ${this.format2(value)} ± ${this.format2(sd)}`
+                : `${ctx.dataset.label}: ${this.format2(value)}`;
             },
           },
         },
@@ -140,7 +155,7 @@ export class BreakdownChartComponent {
     if (!m) return 'Breakdown (no data).';
     const bars = m.buckets
       .filter((b) => b.hasData)
-      .map((b) => `${b.label}: ${b.average.toFixed(2)}`)
+      .map((b) => `${b.label}: ${this.format2(b.average)}`)
       .join(', ');
     return `Breakdown of ${m.measurementName} by bucket, average per bucket: ${bars}.`;
   });

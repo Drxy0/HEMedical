@@ -34,7 +34,7 @@ internal static class StatisticsMath
         double? prevalence = null;
         if (threshold.HasValue && m.AboveThreshold is { } above)
         {
-            thresholdValue = (double)threshold.Value;
+            thresholdValue = threshold.Value;
             countAbove = (int)Math.Round(above);
             prevalence = above / n;
         }
