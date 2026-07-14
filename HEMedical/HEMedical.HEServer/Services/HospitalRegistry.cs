@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using HEMedical.HEServer.Persistance;
 using HEMedical.Shared.Models;
 
 namespace HEMedical.HEServer.Services;
@@ -29,18 +30,25 @@ public class HospitalEntry
 /// Tracks hospital proxies. A proxy first appears as <see cref="HospitalStatus.Pending"/> and is
 /// excluded from query fan-out until an administrator approves it; approval issues a per-proxy API
 /// token that the proxy must then present on every heartbeat. Registration doubles as a heartbeat:
-/// approved entries not re-seen within the TTL drop out of fan-out. In-memory, so a HE Server
-/// restart forgets approvals — proxies re-register (as pending) and must be re-approved; persisting
-/// the registry is left as future work.
+/// approved entries not re-seen within the TTL drop out of fan-out. Backed by
+/// <see cref="IHospitalRegistryStore"/>: the last snapshot is loaded at startup and a fresh one is
+/// saved after every status/token-changing mutation, so administrator approvals survive a HE Server
+/// restart. Heartbeats alone (<see cref="RefreshLastSeen"/>) do not trigger a save — see the store
+/// for why that is safe to skip.
 /// </summary>
 public class HospitalRegistry
 {
-    private readonly ConcurrentDictionary<string, HospitalEntry> _hospitals = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, HospitalEntry> _hospitals;
     private readonly TimeSpan _ttl;
+    private readonly IHospitalRegistryStore _store;
 
-    public HospitalRegistry(IConfiguration configuration)
+    public HospitalRegistry(IConfiguration configuration, IHospitalRegistryStore store)
     {
         _ttl = TimeSpan.FromSeconds(configuration.GetValue("HospitalRegistry:TtlSeconds", 180));
+        _store = store;
+        _hospitals = new ConcurrentDictionary<string, HospitalEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in _store.Load())
+            _hospitals[entry.BaseUrl] = entry;
     }
 
     /// <summary>Approved and last seen within the TTL — i.e. eligible for query fan-out.</summary>
@@ -53,8 +61,11 @@ public class HospitalRegistry
     /// </summary>
     public HospitalEntry GetOrAdd(string name, string baseUrl)
     {
+        bool isNew = !_hospitals.ContainsKey(baseUrl);
         var entry = _hospitals.GetOrAdd(baseUrl, url => new HospitalEntry { Name = name, BaseUrl = url });
         entry.Name = name;
+        if (isNew)
+            Persist(); // a brand-new Pending entry is itself worth remembering across a restart
         return entry;
     }
 
@@ -62,6 +73,13 @@ public class HospitalRegistry
         _hospitals.TryGetValue(baseUrl, out var entry) ? entry : null;
 
     public void RefreshLastSeen(HospitalEntry entry) => entry.LastSeenUtc = DateTimeOffset.UtcNow;
+
+    /// <summary>Marks the token as handed over. Persisted so a restart doesn't re-deliver it needlessly.</summary>
+    public void MarkTokenDelivered(HospitalEntry entry)
+    {
+        entry.TokenDelivered = true;
+        Persist();
+    }
 
     /// <summary>Approves a hospital and issues a fresh API token if it doesn't already hold one.</summary>
     public HospitalEntry? Approve(string baseUrl)
@@ -75,10 +93,11 @@ public class HospitalRegistry
             entry.Token = GenerateToken();
             entry.TokenDelivered = false;
         }
+        Persist();
         return entry;
     }
 
-    /// <summary>Blocks a hospital and revokes its token, so it can neither participate nor heartbeat.</summary>
+    /// <summary>Blocks a hospital and revokes its token (if it had one), so it can neither participate nor heartbeat.</summary>
     public HospitalEntry? Block(string baseUrl)
     {
         if (!_hospitals.TryGetValue(baseUrl, out var entry))
@@ -87,8 +106,11 @@ public class HospitalRegistry
         entry.Status = HospitalStatus.Blocked;
         entry.Token = null;
         entry.TokenDelivered = false;
+        Persist();
         return entry;
     }
+
+    private void Persist() => _store.Save(_hospitals.Values.ToList());
 
     /// <summary>Base URLs eligible for query fan-out: approved and heartbeat within the TTL.</summary>
     public IReadOnlyList<string> ActiveUrls =>

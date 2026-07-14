@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using HEMedical.HEServer;
 using HEMedical.HEServer.Clients.Interfaces;
+using HEMedical.HEServer.Persistance;
 using HEMedical.HEServer.Services;
 using HEMedical.HEServer.Services.Interfaces;
 using Microsoft.AspNetCore.RateLimiting;
@@ -30,6 +31,8 @@ builder.Services.AddRateLimiter(options =>
 });
 
 builder.Services.AddSingleton<HEKeyRegistry>();
+// The registry's persistence store: a JSON file acting as its "database" (see Persistance/).
+builder.Services.AddSingleton<IHospitalRegistryStore, JsonHospitalRegistryStore>();
 builder.Services.AddSingleton<HospitalRegistry>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 // Named client: StatisticsService creates one HospitalProxyClient per hospital URL.

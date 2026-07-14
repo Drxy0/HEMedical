@@ -55,7 +55,7 @@ public class HospitalsController(HospitalRegistry _hospitals, HEKeyRegistry _key
                 else
                 {
                     // First contact after approval: hand the token over exactly once.
-                    entry.TokenDelivered = true;
+                    _hospitals.MarkTokenDelivered(entry);
                     _logger.LogInformation("Delivered API token to approved hospital '{Name}' at {BaseUrl}.", entry.Name, entry.BaseUrl);
                 }
 
