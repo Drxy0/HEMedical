@@ -7,6 +7,13 @@
   margin-top: 1rem;
 }
 
+// Average and breakdown can be shown stacked at the same time (average on top);
+// this only applies once results-region becomes a flex column (see below), but the
+// gap is harmless before that since a block layout simply ignores it.
+.results-region {
+  gap: 1rem;
+}
+
 .spinner-wrapper {
   display: flex;
   justify-content: center;

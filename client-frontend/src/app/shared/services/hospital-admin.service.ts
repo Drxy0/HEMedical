@@ -19,4 +19,8 @@ export class HospitalAdminService {
   block(baseUrl: string): Observable<void> {
     return this.http.post<void>('/api/admin/hospitals/block', { baseUrl });
   }
+
+  remove(baseUrl: string): Observable<void> {
+    return this.http.post<void>('/api/admin/hospitals/remove', { baseUrl });
+  }
 }

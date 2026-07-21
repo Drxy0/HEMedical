@@ -1,0 +1,291 @@
+# Three independent hospitals, each a (Hospital + HospitalProxy) pair. They share the
+# one in-cluster SQL Server (see sqlserver.yaml) but each gets its own database
+# (HospitalDb1/2/3 — see the connectionString1/2/3 keys in db-secret, set by up.ps1),
+# so their data is fully isolated even though the DB engine instance is shared.
+#
+# Each proxy registers with the HE Server under its own HospitalName/BaseUrl, so the
+# HE Server sees three distinct hospitals — each needs its own admin approval before
+# it joins query fan-out (see AdminController / the admin dashboard).
+#
+# To change the count: copy one hospital-N + hospitalproxy-N block, bump every "N",
+# add a matching connectionStringN key to db-secret (in up.ps1), and add the two new
+# Deployments to the rollout-wait list at the bottom of up.ps1.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospital-1
+  namespace: hemedical
+  labels: { app: hospital-1 }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hospital-1 }
+  template:
+    metadata:
+      labels: { app: hospital-1 }
+    spec:
+      containers:
+        - name: hospital
+          image: hemedical/hemedical-hospital:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: Database__DefaultConnection
+              valueFrom:
+                secretKeyRef: { name: db-secret, key: connectionString1 }
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hospital-1
+  namespace: hemedical
+spec:
+  selector: { app: hospital-1 }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospitalproxy-1
+  namespace: hemedical
+  labels: { app: hospitalproxy-1 }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hospitalproxy-1 }
+  template:
+    metadata:
+      labels: { app: hospitalproxy-1 }
+    spec:
+      containers:
+        - name: hospitalproxy
+          image: hemedical/hemedical-hospitalproxy:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: UseHospitalBackend
+              value: "true"
+            - name: PlaintextVerification__Enabled
+              value: "true"
+            - name: HospitalBaseUrl
+              value: "http://hospital-1:8080"
+            - name: FhirBaseUrl
+              value: "https://hapi.fhir.org/baseR4"
+            - name: HEServerBaseUrl
+              value: "http://heserver:8080"
+            - name: ProxyPublicUrl
+              value: "http://hospitalproxy-1:8080"
+            - name: HospitalName
+              value: "k3d Hospital 1"
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hospitalproxy-1
+  namespace: hemedical
+spec:
+  selector: { app: hospitalproxy-1 }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospital-2
+  namespace: hemedical
+  labels: { app: hospital-2 }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hospital-2 }
+  template:
+    metadata:
+      labels: { app: hospital-2 }
+    spec:
+      containers:
+        - name: hospital
+          image: hemedical/hemedical-hospital:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: Database__DefaultConnection
+              valueFrom:
+                secretKeyRef: { name: db-secret, key: connectionString2 }
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hospital-2
+  namespace: hemedical
+spec:
+  selector: { app: hospital-2 }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospitalproxy-2
+  namespace: hemedical
+  labels: { app: hospitalproxy-2 }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hospitalproxy-2 }
+  template:
+    metadata:
+      labels: { app: hospitalproxy-2 }
+    spec:
+      containers:
+        - name: hospitalproxy
+          image: hemedical/hemedical-hospitalproxy:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: UseHospitalBackend
+              value: "true"
+            - name: PlaintextVerification__Enabled
+              value: "true"
+            - name: HospitalBaseUrl
+              value: "http://hospital-2:8080"
+            - name: FhirBaseUrl
+              value: "https://hapi.fhir.org/baseR4"
+            - name: HEServerBaseUrl
+              value: "http://heserver:8080"
+            - name: ProxyPublicUrl
+              value: "http://hospitalproxy-2:8080"
+            - name: HospitalName
+              value: "k3d Hospital 2"
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hospitalproxy-2
+  namespace: hemedical
+spec:
+  selector: { app: hospitalproxy-2 }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospital-3
+  namespace: hemedical
+  labels: { app: hospital-3 }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hospital-3 }
+  template:
+    metadata:
+      labels: { app: hospital-3 }
+    spec:
+      containers:
+        - name: hospital
+          image: hemedical/hemedical-hospital:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: Database__DefaultConnection
+              valueFrom:
+                secretKeyRef: { name: db-secret, key: connectionString3 }
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hospital-3
+  namespace: hemedical
+spec:
+  selector: { app: hospital-3 }
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hospitalproxy-3
+  namespace: hemedical
+  labels: { app: hospitalproxy-3 }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hospitalproxy-3 }
+  template:
+    metadata:
+      labels: { app: hospitalproxy-3 }
+    spec:
+      containers:
+        - name: hospitalproxy
+          image: hemedical/hemedical-hospitalproxy:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: UseHospitalBackend
+              value: "true"
+            - name: PlaintextVerification__Enabled
+              value: "true"
+            - name: HospitalBaseUrl
+              value: "http://hospital-3:8080"
+            - name: FhirBaseUrl
+              value: "https://hapi.fhir.org/baseR4"
+            - name: HEServerBaseUrl
+              value: "http://heserver:8080"
+            - name: ProxyPublicUrl
+              value: "http://hospitalproxy-3:8080"
+            - name: HospitalName
+              value: "k3d Hospital 3"
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hospitalproxy-3
+  namespace: hemedical
+spec:
+  selector: { app: hospitalproxy-3 }
+  ports:
+    - port: 8080
+      targetPort: 8080

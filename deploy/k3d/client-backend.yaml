@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: hemedical
+  labels: { app: client }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: client }
+  template:
+    metadata:
+      labels: { app: client }
+    spec:
+      containers:
+        - name: client
+          image: hemedical/hemedical-client:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: HEServerBaseUrl
+              value: "http://heserver:8080"
+            - name: PlainServerBaseUrl
+              value: "http://plainserver:8080"
+            - name: Loinc__BaseUrl
+              value: "https://fhir.loinc.org/"
+            - name: Loinc__Username
+              valueFrom:
+                secretKeyRef: { name: loinc-secret, key: username }
+            - name: Loinc__Password
+              valueFrom:
+                secretKeyRef: { name: loinc-secret, key: password }
+          volumeMounts:
+            - {
+                name: he-keys,
+                mountPath: /app/public.key,
+                subPath: public.key,
+                readOnly: true,
+              }
+            - {
+                name: he-keys,
+                mountPath: /app/secret.key,
+                subPath: secret.key,
+                readOnly: true,
+              }
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+      volumes:
+        - name: he-keys
+          secret: { secretName: he-keys }

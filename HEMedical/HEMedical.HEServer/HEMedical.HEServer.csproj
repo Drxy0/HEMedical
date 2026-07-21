@@ -17,4 +17,12 @@
     <ProjectReference Include="..\HEMedical.Shared\HEMedical.Shared.csproj" />
   </ItemGroup>
 
+  <!-- Runtime state, not a build input: the hospital registry store is written at runtime.
+       The Web SDK's default content glob would otherwise pick up a stray dev-run copy of
+       this file and bake it into the published image. -->
+  <ItemGroup>
+    <Content Remove="hospital-registry.json;hospital-registry.json.tmp" />
+    <None Remove="hospital-registry.json;hospital-registry.json.tmp" />
+  </ItemGroup>
+
 </Project>

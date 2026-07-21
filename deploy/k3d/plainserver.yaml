@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plainserver
+  namespace: hemedical
+  labels: { app: plainserver }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: plainserver }
+  template:
+    metadata:
+      labels: { app: plainserver }
+    spec:
+      containers:
+        - name: plainserver
+          image: hemedical/hemedical-plainserver:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: HospitalsProxies__Urls__0
+              value: "http://hospitalproxy-1:8080"
+            - name: HospitalsProxies__Urls__1
+              value: "http://hospitalproxy-2:8080"
+            - name: HospitalsProxies__Urls__2
+              value: "http://hospitalproxy-3:8080"
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plainserver
+  namespace: hemedical
+spec:
+  selector: { app: plainserver }
+  ports:
+    - port: 8080
+      targetPort: 8080

@@ -8,9 +8,7 @@ export const routes: Routes = [
     path: 'query',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/clinical-query/clinical-query.component').then(
-        (m) => m.ClinicalQueryComponent,
-      ),
+      import('./features/query/query.component').then((m) => m.ClinicalQueryComponent),
   },
   {
     path: 'login',

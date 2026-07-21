@@ -4,7 +4,6 @@ using HEMedical.Client.Helpers;
 using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.Common;
 using HEMedical.Shared.DTOs;
-using HEMedical.Shared.Models;
 using Microsoft.Research.SEAL;
 
 namespace HEMedical.Client.Services;

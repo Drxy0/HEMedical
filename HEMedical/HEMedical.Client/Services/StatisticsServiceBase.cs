@@ -8,8 +8,13 @@ namespace HEMedical.Client.Services;
 /// <summary>
 /// Thrown by a transport delegate when a failure already has a user-facing message
 /// (e.g. "Decryption failed: …") that must not be re-wrapped as a server request failure.
+/// The <see cref="Kind"/> carries the failure category through so expected states
+/// (e.g. no approved hospitals -> ServiceUnavailable) keep their non-500 status.
 /// </summary>
-internal sealed class StatisticsFetchException(string message) : Exception(message) { }
+internal sealed class StatisticsFetchException(string message, ErrorKind kind = ErrorKind.Failure) : Exception(message)
+{
+    public ErrorKind Kind { get; } = kind;
+}
 
 /// <summary>
 /// The orchestration shared by <see cref="ClientStatisticsService"/> and its verification
@@ -105,7 +110,7 @@ internal abstract class StatisticsServiceBase
         }
         catch (StatisticsFetchException ex)
         {
-            return Result<HistogramResult>.Fail(ex.Message);
+            return Result<HistogramResult>.Fail(ex.Message, ex.Kind);
         }
         catch (Exception ex)
         {
@@ -154,7 +159,7 @@ internal abstract class StatisticsServiceBase
         }
         catch (StatisticsFetchException ex)
         {
-            return Result<QueryResult>.Fail(ex.Message);
+            return Result<QueryResult>.Fail(ex.Message, ex.Kind);
         }
         catch (Exception ex)
         {

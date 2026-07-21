@@ -116,14 +116,24 @@ export class HistogramChartComponent {
     };
   });
 
-  /** Values that fell outside the requested bins, so no patient silently disappears. */
+  /**
+   * Values that fell outside the requested bins, so no patient silently disappears.
+   * Each count is shown with its share of the total patients (in-range + out-of-range).
+   */
   readonly edgeNote = computed<string | null>(() => {
     const m = this.measurement();
     if (!m || (m.belowRangeCount === 0 && m.aboveRangeCount === 0)) return null;
+
+    const total =
+      m.belowRangeCount + m.aboveRangeCount + m.bins.reduce((sum, b) => sum + b.count, 0);
+    const share = (count: number) => (total > 0 ? Math.round((count / total) * 100) : 0);
+
     const parts: string[] = [];
-    if (m.belowRangeCount > 0) parts.push(`${m.belowRangeCount} below the first bin`);
-    if (m.aboveRangeCount > 0) parts.push(`${m.aboveRangeCount} above the last bin`);
-    return `Out of range: ${parts.join(', ')}.`;
+    if (m.belowRangeCount > 0)
+      parts.push(`${share(m.belowRangeCount)}% (${m.belowRangeCount}) below the first bin`);
+    if (m.aboveRangeCount > 0)
+      parts.push(`${share(m.aboveRangeCount)}% (${m.aboveRangeCount}) above the last bin`);
+    return `Out of range: ${parts.join(' | ')}`;
   });
 
   readonly ariaLabel = computed<string>(() => {

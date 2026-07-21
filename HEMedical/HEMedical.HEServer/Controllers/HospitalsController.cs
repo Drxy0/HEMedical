@@ -107,6 +107,24 @@ public class HospitalsController(HospitalRegistry _hospitals, HEKeyRegistry _key
         return Ok(ToView(entry));
     }
 
+    /// <summary>
+    /// Permanently deletes a hospital's registry entry (e.g. a decommissioned proxy whose Service
+    /// no longer exists). Unlike Block, the base URL is freed — a proxy registering there again
+    /// starts over as a fresh Pending entry.
+    /// </summary>
+    [HttpPost("admin/remove")]
+    public IActionResult Remove([FromBody] HospitalActionRequest request)
+    {
+        if (!IsAdmin())
+            return Unauthorized();
+
+        if (!_hospitals.Remove(request.BaseUrl))
+            return NotFound($"No hospital registered at {request.BaseUrl}.");
+
+        _logger.LogInformation("Hospital at {BaseUrl} removed from the registry.", request.BaseUrl);
+        return NoContent();
+    }
+
     private HospitalAdminView ToView(HospitalEntry e) =>
         new(e.Name, e.BaseUrl, e.Status, e.RequestedUtc, e.LastSeenUtc, _hospitals.IsActive(e));
 

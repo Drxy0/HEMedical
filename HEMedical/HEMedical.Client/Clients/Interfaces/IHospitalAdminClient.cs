@@ -11,4 +11,5 @@ public interface IHospitalAdminClient
     Task<IReadOnlyList<HospitalAdminView>> ListAsync(CancellationToken cancellationToken = default);
     Task<bool> ApproveAsync(string baseUrl, CancellationToken cancellationToken = default);
     Task<bool> BlockAsync(string baseUrl, CancellationToken cancellationToken = default);
+    Task<bool> RemoveAsync(string baseUrl, CancellationToken cancellationToken = default);
 }

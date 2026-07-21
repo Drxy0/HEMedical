@@ -59,8 +59,13 @@ public class StatisticsService : IStatisticsService
         {
             var urls = _hospitals.ActiveUrls;
 
+            // A legitimate, transient state: proxies register as Pending and an admin
+            // must approve them before they join fan-out. Surface it as "unavailable"
+            // (503) rather than a server fault (500).
             if (urls.Count == 0)
-                return Result<T>.Fail("No approved hospitals are currently registered with the HE Server.");
+                return Result<T>.Fail(
+                    "No approved hospital data sources are currently available to answer this query. An administrator may need to approve a registered hospital.",
+                    ErrorKind.ServiceUnavailable);
 
             var tasks = urls.Select(url => FetchFromProxyAsync(url, call));
             T?[] responses = await Task.WhenAll(tasks);
@@ -107,7 +112,9 @@ public class StatisticsService : IStatisticsService
     private Result<EncryptedStatisticsResult> AggregateResults(EncryptedStatisticsResult?[] responses)
     {
         if (responses.All(r => r is null))
-            return Result<EncryptedStatisticsResult>.Fail("No valid responses received from any hospital.");
+            return Result<EncryptedStatisticsResult>.Fail(
+                "No hospital data source responded to this query. Please retry shortly.",
+                ErrorKind.ServiceUnavailable);
 
         using var evaluator = new Evaluator(_context);
 
@@ -127,7 +134,9 @@ public class StatisticsService : IStatisticsService
     private Result<byte[]> AggregateHistograms(byte[]?[] responses)
     {
         if (responses.All(r => r is null))
-            return Result<byte[]>.Fail("No valid responses received from any hospital.");
+            return Result<byte[]>.Fail(
+                "No hospital data source responded to this query. Please retry shortly.",
+                ErrorKind.ServiceUnavailable);
 
         using var evaluator = new Evaluator(_context);
         return AggregateVector(responses, evaluator, r => r)!;

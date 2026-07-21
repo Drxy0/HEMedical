@@ -14,8 +14,10 @@ public static class StatisticsQueryString
         var url = new StringBuilder($"{path}?loincCode={Uri.EscapeDataString(loincCode)}");
         if (startDate.HasValue)
             url.Append($"&startDate={startDate.Value:yyyy-MM-dd}");
+        
         if (endDate.HasValue)
             url.Append($"&endDate={endDate.Value:yyyy-MM-dd}");
+
         AppendCommon(url, componentLoincCode, sex, threshold, includeStandardDeviation);
         return url.ToString();
     }

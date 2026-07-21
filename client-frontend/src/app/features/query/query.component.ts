@@ -29,7 +29,12 @@ import {
 } from '../../shared/models/clinical-measurement.model';
 import { QueryHEService } from '../../shared/services/query-he.service';
 import { QueryPlaintextService } from '../../shared/services/query-plaintext.service';
+import { AuthService } from '../../shared/services/auth.service';
 import { QueryResultsComponent } from './query-results.component';
+import { LoincCredentialsDialogComponent } from './loinc-credentials-dialog.component';
+
+/** HTTP 424 (Failed Dependency): the Client needs LOINC credentials before it can verify codes. */
+const LOINC_CREDENTIALS_REQUIRED_STATUS = 424;
 
 type QueryType = 'date' | 'age';
 type ResultType = 'summary' | 'breakdown' | 'histogram';
@@ -110,13 +115,14 @@ function validateQueryForm(group: AbstractControl): ValidationErrors | null {
 
 @Component({
   selector: 'app-clinical-query',
-  imports: [ReactiveFormsModule, QueryResultsComponent],
-  templateUrl: './clinical-query.component.html',
-  styleUrl: './clinical-query.component.scss',
+  imports: [ReactiveFormsModule, QueryResultsComponent, LoincCredentialsDialogComponent],
+  templateUrl: './query.component.html',
+  styleUrl: './query.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ClinicalQueryComponent {
   private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
   private readonly queryHEService = inject(QueryHEService);
   private readonly queryPlaintextService = inject(QueryPlaintextService);
 
@@ -153,6 +159,7 @@ export class ClinicalQueryComponent {
   readonly isBreakdown = computed(() => this.resultType() === 'breakdown');
   readonly isHistogram = computed(() => this.resultType() === 'histogram');
   readonly isSummary = computed(() => this.resultType() === 'summary');
+  readonly canQueryPlaintext = computed(() => this.auth.isAdmin());
 
   private readonly binStartValue = toSignal(this.form.controls.binStart.valueChanges, {
     initialValue: null as number | null,
@@ -177,11 +184,6 @@ export class ClinicalQueryComponent {
     computeBinCount(this.binStartValue(), this.binEndValue(), this.binWidthValue()),
   );
 
-  /**
-   * Live preview of the ranges patients will be counted into, built from whatever the user
-   * has picked so far — makes "start / end / step" concrete instead of abstract, e.g.
-   * "4–4.5, 4.5–5, 5–5.5, 5.5–6 … (12 ranges total)".
-   */
   readonly binRangesPreview = computed(() => {
     const start = this.binStartValue();
     const width = this.binWidthValue();
@@ -208,6 +210,12 @@ export class ClinicalQueryComponent {
   readonly plaintextBreakdown = signal<BreakdownResult | null>(null);
   readonly heHistogram = signal<HistogramResult | null>(null);
   readonly plaintextHistogram = signal<HistogramResult | null>(null);
+
+  /** Shown when a query fails with 424 because the Client has no LOINC credentials. */
+  readonly showLoincDialog = signal(false);
+  /** The query to re-run, and the error signal to report to, once credentials are entered. */
+  private pendingRetry: (() => void) | null = null;
+  private pendingErrorSignal: WritableSignal<string | null> | null = null;
 
   readonly groupByOptions = [
     { value: 12, label: 'Year' },
@@ -251,7 +259,8 @@ export class ClinicalQueryComponent {
   }
 
   onQueryHE(): void {
-    this.clearHe();
+    this.pendingRetry = () => this.onQueryHE();
+    this.clearHeForQuery();
     if (this.isBreakdown())
       this.runBreakdown(this.queryHEService, this.isLoadingHE, this.heError, this.heBreakdown);
     else if (this.isHistogram())
@@ -260,7 +269,12 @@ export class ClinicalQueryComponent {
   }
 
   onQueryPlaintext(): void {
-    this.clearPlaintext();
+    if (!this.canQueryPlaintext()) {
+      this.plaintextError.set('Plaintext queries are restricted to administrators.');
+      return;
+    }
+    this.pendingRetry = () => this.onQueryPlaintext();
+    this.clearPlaintextForQuery();
     if (this.isBreakdown())
       this.runBreakdown(
         this.queryPlaintextService,
@@ -284,16 +298,47 @@ export class ClinicalQueryComponent {
       );
   }
 
-  private clearHe(): void {
-    this.heResult.set(null);
-    this.heBreakdown.set(null);
-    this.heHistogram.set(null);
+  /**
+   * Clears state ahead of an HE query, based on the selected result type. Summary and
+   * breakdown stack on top of each other (a fresh one only replaces its own slot,
+   * leaving the other visible); histogram is exclusive of both, so a fresh histogram
+   * query clears summary and breakdown on both sides, leaving only the histogram.
+   */
+  private clearHeForQuery(): void {
+    if (this.isHistogram()) {
+      this.heResult.set(null);
+      this.heBreakdown.set(null);
+      this.plaintextResult.set(null);
+      this.plaintextBreakdown.set(null);
+      this.heHistogram.set(null);
+    } else if (this.isBreakdown()) {
+      this.heBreakdown.set(null);
+      this.heHistogram.set(null);
+      this.plaintextHistogram.set(null);
+    } else {
+      this.heResult.set(null);
+      this.heHistogram.set(null);
+      this.plaintextHistogram.set(null);
+    }
   }
 
-  private clearPlaintext(): void {
-    this.plaintextResult.set(null);
-    this.plaintextBreakdown.set(null);
-    this.plaintextHistogram.set(null);
+  /** Same rules as {@link clearHeForQuery}, mirrored for the plaintext side. */
+  private clearPlaintextForQuery(): void {
+    if (this.isHistogram()) {
+      this.heResult.set(null);
+      this.heBreakdown.set(null);
+      this.plaintextResult.set(null);
+      this.plaintextBreakdown.set(null);
+      this.plaintextHistogram.set(null);
+    } else if (this.isBreakdown()) {
+      this.plaintextBreakdown.set(null);
+      this.heHistogram.set(null);
+      this.plaintextHistogram.set(null);
+    } else {
+      this.plaintextResult.set(null);
+      this.heHistogram.set(null);
+      this.plaintextHistogram.set(null);
+    }
   }
 
   /** The single measurement described by the LOINC inputs, or null if no code was entered. */
@@ -363,7 +408,7 @@ export class ClinicalQueryComponent {
       .pipe(
         map((r) => [r]),
         catchError((err: unknown) => {
-          error.set(this.extractErrorMessage(err));
+          this.handleQueryError(err, error);
           return EMPTY;
         }),
         finalize(() => loading.set(false)),
@@ -426,7 +471,7 @@ export class ClinicalQueryComponent {
     request$
       .pipe(
         catchError((err: unknown) => {
-          error.set(this.extractErrorMessage(err));
+          this.handleQueryError(err, error);
           return EMPTY;
         }),
         finalize(() => loading.set(false)),
@@ -485,12 +530,43 @@ export class ClinicalQueryComponent {
     request$
       .pipe(
         catchError((err: unknown) => {
-          error.set(this.extractErrorMessage(err));
+          this.handleQueryError(err, error);
           return EMPTY;
         }),
         finalize(() => loading.set(false)),
       )
       .subscribe((r) => result.set(r));
+  }
+
+  /**
+   * Routes a failed query: a 424 means the Client has no LOINC credentials, so open the
+   * dialog (remembering which error signal to report to if the user cancels) instead of
+   * showing a raw error; anything else is shown normally.
+   */
+  private handleQueryError(err: unknown, error: WritableSignal<string | null>): void {
+    if (err instanceof HttpErrorResponse && err.status === LOINC_CREDENTIALS_REQUIRED_STATUS) {
+      this.pendingErrorSignal = error;
+      this.showLoincDialog.set(true);
+      return;
+    }
+    error.set(this.extractErrorMessage(err));
+  }
+
+  /** Credentials accepted: close the dialog and re-run the query that triggered it. */
+  onLoincSaved(): void {
+    this.showLoincDialog.set(false);
+    const retry = this.pendingRetry;
+    this.pendingRetry = null;
+    this.pendingErrorSignal = null;
+    retry?.();
+  }
+
+  /** Dialog dismissed without credentials: leave a note on the originating query. */
+  onLoincCancelled(): void {
+    this.showLoincDialog.set(false);
+    this.pendingErrorSignal?.set('LOINC credentials are required to run this query.');
+    this.pendingRetry = null;
+    this.pendingErrorSignal = null;
   }
 
   private extractErrorMessage(err: unknown): string {

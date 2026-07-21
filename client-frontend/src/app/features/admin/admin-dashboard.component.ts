@@ -60,6 +60,9 @@ import { HospitalAdminView } from '../../shared/models/hospital.model';
                         Block
                       </button>
                     }
+                    <button type="button" class="remove" (click)="remove(h)" [disabled]="busy()">
+                      Remove
+                    </button>
                   </td>
                 </tr>
               }
@@ -141,6 +144,9 @@ import { HospitalAdminView } from '../../shared/models/hospital.model';
     .block {
       background: #dc2626;
     }
+    .remove {
+      background: #6b7280;
+    }
     .refresh {
       background: #2563eb;
     }
@@ -190,6 +196,17 @@ export class AdminDashboardComponent implements OnInit {
   block(hospital: HospitalAdminView): void {
     this.busy.set(true);
     this.admin.block(hospital.baseUrl).subscribe({
+      next: () => this.reloadAfterAction(),
+      error: (err: unknown) => this.handleError(err),
+    });
+  }
+
+  /** Permanent (unlike Block): confirm before deleting the registry entry outright. */
+  remove(hospital: HospitalAdminView): void {
+    if (!confirm(`Remove "${hospital.name}" (${hospital.baseUrl}) from the registry? This cannot be undone.`))
+      return;
+    this.busy.set(true);
+    this.admin.remove(hospital.baseUrl).subscribe({
       next: () => this.reloadAfterAction(),
       error: (err: unknown) => this.handleError(err),
     });

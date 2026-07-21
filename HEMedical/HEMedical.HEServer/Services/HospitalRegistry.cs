@@ -110,6 +110,19 @@ public class HospitalRegistry
         return entry;
     }
 
+    /// <summary>
+    /// Permanently removes a hospital's entry (e.g. after decommissioning it), rather than just
+    /// blocking it. Unlike Block, this frees the base URL to be registered fresh from scratch —
+    /// if the same URL registers again later, it starts over as a new Pending entry.
+    /// </summary>
+    public bool Remove(string baseUrl)
+    {
+        bool removed = _hospitals.TryRemove(baseUrl, out _);
+        if (removed)
+            Persist();
+        return removed;
+    }
+
     private void Persist() => _store.Save(_hospitals.Values.ToList());
 
     /// <summary>Base URLs eligible for query fan-out: approved and heartbeat within the TTL.</summary>

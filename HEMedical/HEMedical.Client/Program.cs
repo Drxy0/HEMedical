@@ -3,7 +3,6 @@ using HEMedical.Client.Clients;
 using HEMedical.Client.Clients.Interfaces;
 using HEMedical.Client.Services;
 using HEMedical.Client.Services.Interfaces;
-using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -63,19 +62,15 @@ builder.Services.AddHttpClient<IPlainServerClient, PlainServerClient>(client =>
 // which hands it to hospital proxies when they register.
 builder.Services.AddHostedService<HEKeyPublisherService>();
 
+// LOINC credentials live in the store (seeded from config, or entered at runtime via
+// the API when a deployment starts without them). The verification service reads them
+// per request, so no auth header is baked into the HttpClient here.
+builder.Services.AddSingleton<LoincCredentialStore>();
 builder.Services.AddHttpClient<ILoincVerificationService, LoincVerificationService>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Loinc:BaseUrl"] ?? "https://fhir.loinc.org/");
     // A hung terminology server should fail the query quickly, not stall it for the default 100 s.
     client.Timeout = TimeSpan.FromSeconds(10);
-
-    string? username = builder.Configuration["Loinc:Username"];
-    string? password = builder.Configuration["Loinc:Password"];
-    if (!string.IsNullOrEmpty(username))
-    {
-        string basicAuth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{username}:{password}"));
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
-    }
 });
 
 var app = builder.Build();

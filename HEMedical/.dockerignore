@@ -1,2 +1,5 @@
 **/bin/
 **/obj/
+# Runtime state written by services during local dev — never ship it in an image.
+**/hospital-registry.json
+**/hospital-registry.json.tmp

@@ -36,4 +36,10 @@ public class HospitalAdminClient : IHospitalAdminClient
         var response = await _httpClient.PostAsJsonAsync("api/hospitals/admin/block", new HospitalActionRequest(baseUrl), cancellationToken);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<bool> RemoveAsync(string baseUrl, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync("api/hospitals/admin/remove", new HospitalActionRequest(baseUrl), cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
 }

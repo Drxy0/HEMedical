@@ -1,0 +1,57 @@
+# Local-only SQL Server. In the AKS deployment this is replaced by external
+# Azure SQL (see deploy/k8s/backend.yaml -> hospital reads the db-secret
+# connection string). Here we run SQL Server in-cluster, mirroring
+# HEMedical/docker-compose.yml. Data is ephemeral (emptyDir): the Hospital
+# service re-runs its EF migrations and re-seeds on every startup, so a fresh
+# DB each restart is fine. Swap emptyDir for a PersistentVolumeClaim (k3d ships
+# the local-path provisioner) if you want the data to survive pod restarts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqlserver
+  namespace: hemedical
+  labels: { app: sqlserver }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: sqlserver }
+  template:
+    metadata:
+      labels: { app: sqlserver }
+    spec:
+      containers:
+        - name: sqlserver
+          image: mcr.microsoft.com/mssql/server:2025-CU5-ubuntu-24.04
+          ports:
+            - containerPort: 1433
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: db-secret, key: saPassword }
+            - name: MSSQL_PID
+              value: "Developer"
+          volumeMounts:
+            - { name: mssql-data, mountPath: /var/opt/mssql }
+          resources:
+            requests: { cpu: "250m", memory: "2Gi" }
+            limits: { cpu: "2", memory: "4Gi" }
+          readinessProbe:
+            tcpSocket: { port: 1433 }
+            initialDelaySeconds: 15
+            periodSeconds: 5
+      volumes:
+        - name: mssql-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlserver
+  namespace: hemedical
+spec:
+  selector: { app: sqlserver }
+  ports:
+    - port: 1433
+      targetPort: 1433

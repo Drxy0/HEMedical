@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heserver
+  namespace: hemedical
+  labels:
+    app: heserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: heserver
+  template:
+    metadata:
+      labels:
+        app: heserver
+    spec:
+      containers:
+        - name: heserver
+          image: hemedical/hemedical-heserver:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: HospitalRegistry__StorePath
+              value: "/data/hospital-registry.json"
+          volumeMounts:
+            - name: heserver-data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: heserver-data
+          persistentVolumeClaim:
+            claimName: heserver-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: heserver
+  namespace: hemedical
+  labels:
+    app: heserver
+spec:
+  selector:
+    app: heserver
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -1,6 +1,7 @@
 using HEMedical.HEServer.Services;
 using HEMedical.HEServer.Services.Interfaces;
 using HEMedical.Shared;
+using HEMedical.Shared.Common;
 using HEMedical.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,7 +18,7 @@ public class QueryController(IStatisticsService _statService, HEKeyRegistry _key
             return keyProblem;
 
         var result = await _statService.GetStatisticsByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, threshold, includeStandardDeviation);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+        return ToResponse(result);
     }
 
     [HttpGet("by-age")]
@@ -27,7 +28,7 @@ public class QueryController(IStatisticsService _statService, HEKeyRegistry _key
             return keyProblem;
 
         var result = await _statService.GetStatisticsByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, threshold, includeStandardDeviation);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+        return ToResponse(result);
     }
 
     [HttpGet("histogram-by-date")]
@@ -37,7 +38,7 @@ public class QueryController(IStatisticsService _statService, HEKeyRegistry _key
             return keyProblem;
 
         var result = await _statService.GetHistogramByDateRangeAsync(loincCode, componentLoincCode, startDate, endDate, sex, binStart, binWidth, binCount);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+        return ToResponse(result);
     }
 
     [HttpGet("histogram-by-age")]
@@ -47,7 +48,27 @@ public class QueryController(IStatisticsService _statService, HEKeyRegistry _key
             return keyProblem;
 
         var result = await _statService.GetHistogramByAgeRangeAsync(loincCode, componentLoincCode, startAge, endAge, sex, binStart, binWidth, binCount);
-        return result.IsSuccess ? Ok(result.Value) : Problem(result.Error);
+        return ToResponse(result);
+    }
+
+    /// <summary>
+    /// Maps a query result to a response: success is 200; a failure's <see cref="ErrorKind"/>
+    /// chooses the status so expected states (no approved hospitals / none responded) come
+    /// back as 503, not a blanket 500.
+    /// </summary>
+    private IActionResult ToResponse<T>(Result<T> result)
+    {
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        int statusCode = result.Kind switch
+        {
+            ErrorKind.ServiceUnavailable => StatusCodes.Status503ServiceUnavailable,
+            ErrorKind.NotFound => StatusCodes.Status404NotFound,
+            ErrorKind.InvalidInput => StatusCodes.Status400BadRequest,
+            _ => StatusCodes.Status500InternalServerError,
+        };
+        return Problem(result.Error, statusCode: statusCode);
     }
 
     /// <summary>

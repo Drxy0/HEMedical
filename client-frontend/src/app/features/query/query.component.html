@@ -8,7 +8,7 @@
           <label for="presetFill" style="align-self: end">Predefined codes</label>
           <select
             id="presetFill"
-            style="max-width: 200px; align-self: end"
+            style="max-width: 216px; align-self: end"
             #presetSelect
             (change)="applyPreset(presetSelect.value)"
           >
@@ -272,12 +272,6 @@
         }
 
         @if (isHistogram()) {
-          <p class="field-hint">
-            {{
-              binRangesPreview() ??
-                'Enter a start and end value, then choose a step size.'
-            }}
-          </p>
           <div class="field-row">
             <div class="field">
               <label for="binStart"
@@ -304,9 +298,7 @@
               />
             </div>
             <div class="field">
-              <label for="binWidth"
-                >Step <span class="required" aria-hidden="true">*</span></label
-              >
+              <label for="binWidth">Step <span class="required" aria-hidden="true">*</span></label>
               <select id="binWidth" formControlName="binWidth">
                 <option [ngValue]="null" disabled>Select…</option>
                 @for (opt of binWidthOptions(); track opt) {
@@ -320,6 +312,9 @@
               >End must be after start, with a step that produces at most 512 ranges</span
             >
           }
+          <p class="field-hint">
+            {{ binRangesPreview() ?? 'Enter a start and end value, then choose a step size.' }}
+          </p>
         }
 
         <div class="button-group">
@@ -335,19 +330,16 @@
               Query HE
             }
           </button>
-          <button
-            type="button"
-            class="plaintext-btn"
-            (click)="onQueryPlaintext()"
-            [disabled]="isLoadingHE() || isLoadingPlaintext()"
-          >
-            @if (isLoadingPlaintext()) {
-              <span aria-hidden="true">Querying…</span>
-              <span class="sr-only">Loading plaintext query, please wait</span>
-            } @else {
+          @if (canQueryPlaintext()) {
+            <button
+              type="button"
+              class="plaintext-btn"
+              (click)="onQueryPlaintext()"
+              [disabled]="isLoadingHE() || isLoadingPlaintext()"
+            >
               Query Plaintext
-            }
-          </button>
+            </button>
+          }
         </div>
       </form>
     </div>
@@ -365,4 +357,8 @@
       [plaintextHistogram]="plaintextHistogram()"
     />
   </div>
+
+  @if (showLoincDialog()) {
+    <app-loinc-credentials-dialog (saved)="onLoincSaved()" (cancelled)="onLoincCancelled()" />
+  }
 </section>

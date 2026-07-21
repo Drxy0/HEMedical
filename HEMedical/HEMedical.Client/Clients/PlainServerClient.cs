@@ -1,7 +1,10 @@
 using HEMedical.Client.Clients.Interfaces;
 using HEMedical.Client.DTOs;
+using HEMedical.Client.Services;
+using HEMedical.Shared.Common;
 using HEMedical.Shared.DTOs;
 using HEMedical.Shared.Http;
+using System.Net;
 
 namespace HEMedical.Client.Clients;
 
@@ -34,8 +37,32 @@ public class PlainServerClient : IPlainServerClient
 
     private async Task<T?> GetAsync<T>(string url) where T : class
     {
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.GetAsync(url);
+        }
+        catch (HttpRequestException)
+        {
+            // PlainServer unreachable (e.g. the verification twin isn't deployed). This is a
+            // valid, non-fatal state — surface it as unavailable (503), not a server fault.
+            throw new StatisticsFetchException(
+                "The plaintext verification service (PlainServer) is not available in this deployment.",
+                ErrorKind.ServiceUnavailable);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            ErrorKind kind = response.StatusCode switch
+            {
+                HttpStatusCode.ServiceUnavailable => ErrorKind.ServiceUnavailable,
+                HttpStatusCode.NotFound => ErrorKind.NotFound,
+                _ => ErrorKind.Failure,
+            };
+            throw new StatisticsFetchException(
+                $"The PlainServer returned {(int)response.StatusCode} ({response.ReasonPhrase}).", kind);
+        }
+
         return await response.Content.ReadFromJsonAsync<T>();
     }
 }

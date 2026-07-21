@@ -17,6 +17,8 @@ internal static class ResultActionResultExtensions
         {
             ErrorKind.InvalidInput => StatusCodes.Status400BadRequest,
             ErrorKind.NotFound => StatusCodes.Status404NotFound,
+            ErrorKind.LoincCredentialsRequired => StatusCodes.Status424FailedDependency,
+            ErrorKind.ServiceUnavailable => StatusCodes.Status503ServiceUnavailable,
             _ => StatusCodes.Status500InternalServerError,
         };
 

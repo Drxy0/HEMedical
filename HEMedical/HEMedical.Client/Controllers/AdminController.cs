@@ -34,4 +34,11 @@ public class AdminController(IHospitalAdminClient _admin) : ControllerBase
         await _admin.BlockAsync(request.BaseUrl)
             ? NoContent()
             : NotFound($"No hospital registered at {request.BaseUrl}.");
+
+    /// <summary>Permanently removes a hospital's registry entry (e.g. a decommissioned proxy).</summary>
+    [HttpPost("remove")]
+    public async Task<IActionResult> Remove([FromBody] HospitalActionRequest request) =>
+        await _admin.RemoveAsync(request.BaseUrl)
+            ? NoContent()
+            : NotFound($"No hospital registered at {request.BaseUrl}.");
 }

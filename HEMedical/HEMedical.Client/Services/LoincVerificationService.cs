@@ -3,6 +3,8 @@ using HEMedical.Client.Services.Interfaces;
 using HEMedical.Shared.Common;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 
 namespace HEMedical.Client.Services;
@@ -11,21 +13,32 @@ namespace HEMedical.Client.Services;
 /// Verifies LOINC codes against the official LOINC FHIR terminology server
 /// (fhir.loinc.org) using the CodeSystem/$lookup operation, which both validates
 /// the code and returns its display name and example unit (EXAMPLE_UCUM_UNITS).
-/// Requires a LOINC account configured via the "Loinc:Username"/"Loinc:Password" settings.
-/// The handful of codes used by the frontend presets are resolved locally, so preset
-/// queries work without credentials or internet access; successful remote lookups
-/// are cached for the process lifetime.
+/// Requires a LOINC account; the credentials come from <see cref="LoincCredentialStore"/>
+/// (seeded from config, or entered at runtime through the API). When none are present
+/// the lookup fails with <see cref="ErrorKind.LoincCredentialsRequired"/> so the caller
+/// can prompt for them. Successful remote lookups are cached for the process lifetime.
 /// </summary>
 internal class LoincVerificationService : ILoincVerificationService
 {
+    /// <summary>
+    /// A stable, well-known LOINC code (HbA1c) used only to check that a set of
+    /// credentials is accepted by the terminology server.
+    /// </summary>
+    private const string CredentialProbeCode = "4548-4";
+
     private static readonly ConcurrentDictionary<string, LoincCodeInfo> _verifiedCache = new();
 
     private readonly HttpClient _httpClient;
+    private readonly LoincCredentialStore _credentials;
     private readonly ILogger<LoincVerificationService> _logger;
 
-    public LoincVerificationService(HttpClient httpClient, ILogger<LoincVerificationService> logger)
+    public LoincVerificationService(
+        HttpClient httpClient,
+        LoincCredentialStore credentials,
+        ILogger<LoincVerificationService> logger)
     {
         _httpClient = httpClient;
+        _credentials = credentials;
         _logger = logger;
     }
 
@@ -37,17 +50,49 @@ internal class LoincVerificationService : ILoincVerificationService
         if (_verifiedCache.TryGetValue(loincCode, out LoincCodeInfo? cached))
             return cached;
 
+        if (!_credentials.HasCredentials)
+            return Result<LoincCodeInfo>.Fail(
+                "LOINC credentials are required to verify measurement codes. Enter your loinc.org account to continue.",
+                ErrorKind.LoincCredentialsRequired);
+
+        var (username, password) = _credentials.Get();
+        var result = await LookupAsync(loincCode, username, password, cancellationToken);
+        if (result.IsSuccess)
+            _verifiedCache.TryAdd(loincCode, result.Value!);
+        return result;
+    }
+
+    public async Task<Result<bool>> TestCredentialsAsync(string username, string password, CancellationToken cancellationToken = default)
+    {
+        var result = await LookupAsync(CredentialProbeCode, username, password, cancellationToken);
+        // A recognized probe code means the server accepted the credentials.
+        return result.IsSuccess ? Result<bool>.Ok(true) : Result<bool>.Fail(result.Error!, result.Kind);
+    }
+
+    /// <summary>Runs a single $lookup with the given credentials, without touching the store or cache.</summary>
+    private async Task<Result<LoincCodeInfo>> LookupAsync(
+        string loincCode, string username, string password, CancellationToken cancellationToken)
+    {
         try
         {
             string url = $"CodeSystem/$lookup?system=http://loinc.org&code={Uri.EscapeDataString(loincCode)}&property=EXAMPLE_UCUM_UNITS";
-            var response = await _httpClient.GetAsync(url, cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(username))
+            {
+                string basicAuth = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{username}:{password}"));
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
+            }
+
+            var response = await _httpClient.SendAsync(request, cancellationToken);
 
             // $lookup rejects unknown codes; anything else non-2xx is a service problem, not a bad code.
             if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.NotFound)
                 return Result<LoincCodeInfo>.Fail($"'{loincCode}' is not a recognized LOINC code.", ErrorKind.InvalidInput);
 
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-                return Result<LoincCodeInfo>.Fail("The LOINC terminology server rejected our credentials — check the Loinc:Username/Loinc:Password configuration.");
+                return Result<LoincCodeInfo>.Fail(
+                    "The LOINC terminology server rejected these credentials. Check your loinc.org username and password.",
+                    ErrorKind.LoincCredentialsRequired);
 
             if (!response.IsSuccessStatusCode)
                 return Result<LoincCodeInfo>.Fail($"LOINC verification service returned {(int)response.StatusCode}.");
@@ -56,9 +101,7 @@ internal class LoincVerificationService : ILoincVerificationService
             if (!doc.RootElement.TryGetProperty("parameter", out var parameters))
                 return Result<LoincCodeInfo>.Fail("Unexpected response from LOINC verification service.");
 
-            var info = ParseLookupResponse(parameters, loincCode);
-            _verifiedCache.TryAdd(loincCode, info);
-            return info;
+            return ParseLookupResponse(parameters, loincCode);
         }
         catch (Exception ex)
         {

@@ -24,7 +24,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<HospitalDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     await db.Database.MigrateAsync();
-    await DbSeeder.SeedAsync(db, logger);
+    await DbSeeder.SeedAsync(db, logger, true);
 }
 
 if (app.Environment.IsDevelopment())
